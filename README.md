@@ -1,11 +1,12 @@
-# PokéChess — Ajedrez, damas y damas chinas Pokémon online
+# PokéChess — Ajedrez, damas, damas chinas y Ruta de Medallas Pokémon online
 
 Ajedrez para 2 jugadores en tiempo real donde las piezas son Pokémon **animados** estilo
 *Mundo Misterioso*: respiran en reposo, caminan hasta su casilla y, al comerse otra pieza,
 **atacan** mientras la víctima recibe el golpe y se debilita.
 
-- Tres juegos: **ajedrez**, **damas** (clásicas, en el tablero de 8×8) y **damas chinas** (tablero de estrella), online o contra el bot.
-- Cada jugador elige **su propia generación** (I, II o III) y sus piezas opcionales (se puede jugar Gen I contra Gen III).
+- Cuatro juegos: **ajedrez**, **damas** (8×8), **damas chinas** (estrella) y **Ruta de Medallas** (juego de tablero de 2 a 4 jugadores), online o contra bots.
+- Cada jugador elige **su propia generación** (I, II, III o IV) y sus piezas opcionales (se puede jugar Gen I contra Gen IV).
+- **Pokéreloj**: chat de la sala con reacciones y registro, en forma de reloj pixel art.
 - El anfitrión elige el **tablero**: lugares icónicos del mundo Pokémon (o aleatorio).
 - Las blancas llevan una **Honor Ball** bajo los pies y las negras una **Ocaso Ball**, además del sprite **shiny**. Sin sombras.
 - **Modo contra el bot** con tres dificultades: Fácil, Normal y Difícil.
@@ -32,6 +33,63 @@ Ajedrez para 2 jugadores en tiempo real donde las piezas son Pokémon **animados
 | Rey y reina (en pareja) | **Groudon y Kyogre** o **Latios y Latias** |
 
 En Gen III el rey y la reina se eligen juntos: al escoger Latios, la reina pasa a ser Latias.
+
+| Pieza | Generación IV (Sinnoh) |
+|---|---|
+| Peón | Bidoof |
+| Caballo | Luxray |
+| Alfil | Milotic |
+| Torre | Probopass |
+| Reina | Dialga |
+| Rey | Palkia |
+
+En damas, la Gen IV usa **Gible** que al coronar evoluciona a **Garchomp**; en damas chinas sus 10 fichas son
+Turtwig, Chimchar, Piplup, Shinx, Buneary, Pachirisu, Glameow, Riolu, Munchlax y Gible.
+
+## Ruta de Medallas
+
+Juego de tablero original para **2 a 4 jugadores** (amigos y/o bots). Cada jugador elige **cualquier Pokémon que sea el
+primero de su línea evolutiva** (regla estricta: Pichu sí, Pikachu no; 504 elegibles, datos de PokeAPI) y si lo quiere **shiny**.
+El anfitrión elige las **medallas para ganar (3 a 8, por defecto 8)**, los bots y su dificultad, y el tablero.
+
+**Turno**: tiras dos dados y tu Pokémon camina. Con dobles vuelves a tirar (máx. 2 veces). Pasar por la Salida da +200 ₽.
+
+**Tablero de 44 casillas** (cuadrícula de 12×12) por cinco regiones —Kanto, Johto, Hoenn, Sinnoh y **Teselia**—:
+
+| Casilla | Qué pasa |
+|---|---|
+| Pueblo (15) | Se reclama. Quien cae en uno ajeno paga entrenamiento; ×2 si el dueño tiene la región entera |
+| Gimnasio (9) | Desafías al líder (tus dados contra los suyos; el empate gana el retador). Medallas **personales**: si ya tienes esa, luchas por la siguiente que te falte. Cada derrota da +1 de experiencia (máx. +3) |
+| Transporte (4) | Magnetotren, Ferry S.S. Aqua, Teleférico, Metro Batalla. Billete 30/60/110/180 ₽ según cuántos tenga el dueño. Si caes en uno tuyo, **viajas gratis** a otro de los tuyos |
+| Servicio (2) | Central Eléctrica y Torre Radio: se paga lo de los dados ×4 (×10 si el dueño tiene los dos) |
+| Hierba alta (3) | Evento animado con un Pokémon salvaje (ver abajo) |
+| Árbol de Bayas (3) | Evento animado de bayas (ver abajo) |
+| Equipo Galaxia (2) | Te roban dinero o una propiedad (Scyther del Safari te protege) |
+| Monte Corona | **Atajo** por la cueva que cruza el centro del tablero hasta Ciudad Rocavelo: puede salir bien o devolverte a la entrada |
+| Zona Safari | Entrada 50 ₽ y 3 Safari Balls para capturar un Pokémon con un bonus de un uso |
+| Centro Pokémon / Tienda | Bono de 50 ₽ / comprar una Poké Flauta |
+| Snorlax dormido | Si te mandan allí te quedas atascado hasta sacar dobles, usar una Poké Flauta o Baya Zreza, o 3 turnos |
+
+- **Hierba alta**: Snorlax dormido, Ponyta (¡vuelve a tirar!), Abra (teletransporte), Meowth (Día de Pago), Pidgey (vuelo al Centro), Geodude (retrocedes), Gastly (pierdes turno), Chansey, Poké Flauta, Zubat.
+- **Árbol de Bayas**: Aranja, Zreza (se guarda), Meloc (avanza), Atania (retrocede), Zidra (al Centro), ¡Bayas para todos!, Fiesta de bayas, Aipom te roba, Caquic (pierdes turno).
+- **Monte Corona**: Onix cava un túnel, objeto escondido, Poké Flauta (cruzas) · Geodude, Zubat, Bronzor (vuelves a la entrada).
+- **Zona Safari**: Kangaskhan (+120 ₽), Tauros (avanza 3), Chansey (al Centro), Scyther (protege del Equipo Galaxia), Pinsir (recupera gratis de la Guardería), Exeggcute (vuelve a tirar) y Dratini, rarísimo (desafío de gimnasio extra).
+- **Combate**: si caes donde hay otro jugador puedes retarle; los dos tiran los dados, el ganador **ataca** y el perdedor **retrocede** a la casilla donde estaba antes.
+- **Si no puedes pagar**: dejar propiedades en la **Guardería** (recibes el 50 %, no cobran; recuperarlas cuesta el 60 %), **venderlas a otro jugador** (él acepta o rechaza; caduca en 30 s) o **a la Tienda Pokémon** (40 %), o **retirarte** (tus bienes pasan a quien le debías).
+- **Gana** quien llega a las medallas objetivo, el último con dinero, o el de más patrimonio al acabar las rondas (15 + 6 × medallas).
+- **Bots** (Fácil / Normal / Difícil): reclaman, combaten, cruzan la cueva, entran al Safari, viajan, usan sus Pokémon capturados y salen de deudas.
+
+**Tablero dinámico**: suelo de baldosas en pixel art, árboles, flores, estanque, la Zona Safari con su valla y el sendero de cueva del
+atajo con su cartel; Pokémon salvajes paseando; **día, tarde, atardecer y noche** según la ronda (de noche se encienden los faroles);
+casillas que se iluminan al caminar, monedas que vuelan al pagar, medallas, confeti al reclamar, dados que giran y foco en el turno.
+Los avisos de eventos aparecen arriba y se apartan solos; la tarjeta central solo muestra el turno y los dados.
+
+## Pokéreloj (chat)
+
+Reloj pixel art en una esquina, en el lobby y en la partida de todos los juegos. El botón lateral cambia de pantalla:
+**Chat** (con el mini sprite de cada jugador y "escribiendo…"), **Reacciones** (¡GG!, ¡Bien jugado!, ¡Eso dolió!…: el Pokémon de quien
+la manda actúa sobre el tablero) y **Registro** de la partida. Plegado avisa de los mensajes sin leer. Se guardan los últimos 50
+mensajes; máximo 200 caracteres y 1 mensaje por segundo; el texto se muestra siempre como texto (sin HTML).
 
 ## Damas
 
@@ -167,21 +225,31 @@ pokechess/
 │  ├─ rooms.js       Salas, generación por jugador, tablero, turnos, reglas y asiento del bot
 │  ├─ bot.js         Cerebro del bot de ajedrez (minimax alfa-beta, 3 dificultades)
 │  ├─ draughtsBot.js Bot de damas (alfa-beta)
-│  └─ checkersBot.js Bot de damas chinas
+│  ├─ checkersBot.js Bot de damas chinas
+│  ├─ routeRoom.js   Sala de Ruta de Medallas (4 asientos, bots, ofertas)
+│  ├─ routeBot.js    Bot de Ruta de Medallas
+│  └─ errors.js      Error que se muestra al jugador
 ├─ shared/
 │  ├─ generations.js Pokémon de cada pieza por generación (Node y navegador)
 │  ├─ boards.js      Lista de tableros temáticos
 │  ├─ draughts.js    Reglas de las damas (Node y navegador)
-│  └─ checkers.js    Reglas de las damas chinas (Node y navegador)
+│  ├─ checkers.js    Reglas de las damas chinas (Node y navegador)
+│  └─ route.js       Reglas de Ruta de Medallas (Node y navegador)
 ├─ public/
 │  ├─ index.html     Pantallas: inicio, lobby y partida
 │  ├─ app.js         Cliente: conexión, lobby, tablero, animación de jugadas
 │  ├─ sprites.js     Dibujo y animación de sprites en <canvas>
+│  ├─ route-ui.js    Interfaz de Ruta de Medallas (tablero dinámico, panel, efectos)
+│  ├─ poketch.js     Pokéreloj (chat, reacciones, registro)
 │  ├─ style.css      Estilos y tableros temáticos
-│  └─ img/           Honor Ball y Ocaso Ball (SVG)
+│  ├─ fonts/         Pixelify Sans (OFL)
+│  └─ img/           Poké Balls, robot, icono y props/ (escenario pixel art)
+├─ tools/
+│  └─ make-props.js  Genera los elementos pixel art del escenario
 ├─ assets/
 │  ├─ pokemon/       966 Pokémon × animaciones (normal y shiny/s)
-│  └─ sprite-meta.json
+│  ├─ sprite-meta.json
+│  └─ base-forms.json Pokémon elegibles en Ruta de Medallas (primeros de su línea)
 └─ test/             Pruebas con node --test
 ```
 
@@ -216,6 +284,9 @@ material insuficiente y la regla de 50 jugadas.
 | `ready {ready}` | listo / no listo |
 | `move {from, to, promotion, path}` | mover (en damas, `path` desempata cadenas; en damas chinas `from`/`to` son huecos `"q,r"`) |
 | `resign`, `rematch` | rendirse / revancha |
+| `chat {text}` · `react {kind}` · `typing` | Pokéreloj (todas las salas) |
+| `pick {mon, shiny}` · `addBot` · `removeBot {seat}` · `target {n}` | Ruta de Medallas: lobby |
+| `route {action}` | Ruta de Medallas: `roll`, `buy`, `skip`, `battle`, `decline`, `shop`, `cave`, `safari`, `travel`, `useItem`, `useSafari`, `end`, `daycare`, `redeem`, `sellBank`, `offer`, `answer`, `cancelOffer`, `retire` |
 
 El servidor responde con `joined {code, token, color}`, `state {state}` o `error {message}`.
 
@@ -237,7 +308,7 @@ Ya están descargados los sprites de 966 Pokémon. Solo hay que añadir una entr
 npm test
 ```
 
-47 pruebas. De damas: posición inicial, avance en diagonal, comer libre (no comer y cortar cadenas), captura obligatoria como opción y quién la elige, cadenas de capturas, coronación, la dama come hacia atrás, victoria sin fichas o sin movimientos, el bot juega legal y elige la captura doble, y la sala de damas. De damas chinas y Gen III: tablero de 121 huecos, pasos y saltos encadenados, validación de jugadas, victoria al llenar la meta, el bot juega legal y termina partidas, sala con bot y cambio de juego, y la pareja rey/reina de Gen III. Del modo atento: está activo por defecto y solo lo cambia el anfitrión, se puede ignorar el jaque y comerse al rey gana, el "mate" no termina la partida, las reglas clásicas siguen igual, el bot se come un rey desprotegido y mueve aunque no tenga jugadas legales. Del bot: siempre juega legal (partidas bot contra bot), todos los niveles ven el mate en 1,
+71 pruebas. De Ruta de Medallas: tablero de 44 casillas, jugadores y medallas, reclamar y cobrar (región ×2, Guardería), salida y dobles, gimnasios y experiencia, victoria por medallas, combates y retroceso, cada evento de hierba alta y de bayas, Snorlax, transportes y viajes, servicios, el atajo del Monte Corona, la Zona Safari y cada bonus, deudas y ventas (aceptar, rechazar, caducar), retirarse, el bot en partidas de 2 y 4, la regla estricta de primera fase, la sala de 4 y una partida por WebSocket con el chat del Pokéreloj. De la Gen IV: sus piezas en los tres juegos. De damas: posición inicial, avance en diagonal, comer libre (no comer y cortar cadenas), captura obligatoria como opción y quién la elige, cadenas de capturas, coronación, la dama come hacia atrás, victoria sin fichas o sin movimientos, el bot juega legal y elige la captura doble, y la sala de damas. De damas chinas y Gen III: tablero de 121 huecos, pasos y saltos encadenados, validación de jugadas, victoria al llenar la meta, el bot juega legal y termina partidas, sala con bot y cambio de juego, y la pareja rey/reina de Gen III. Del modo atento: está activo por defecto y solo lo cambia el anfitrión, se puede ignorar el jaque y comerse al rey gana, el "mate" no termina la partida, las reglas clásicas siguen igual, el bot se come un rey desprotegido y mueve aunque no tenga jugadas legales. Del bot: siempre juega legal (partidas bot contra bot), todos los niveles ven el mate en 1,
 Normal/Difícil se comen una dama regalada, Fácil come lo más valioso, corona, respeta su tiempo,
 la sala con bot (opciones, color, revancha automática) y una partida por WebSocket donde el bot contesta solo.
 Del resto: piezas por generación, generación por jugador, tablero (solo anfitrión, aleatorio),
@@ -246,6 +317,12 @@ que no se filtren tokens, una partida completa por WebSocket con reconexión, y 
 966 Pokémon y que las hojas de cada pieza cuadren con sus metadatos.
 
 ## Cambios
+
+**v8 — Ruta de Medallas, Pokéreloj y Generación IV**
+- Nuevo juego: **Ruta de Medallas** (2-4 jugadores, bots, 44 casillas, Teselia, transportes, servicios, Monte Corona, Zona Safari, combates, Guardería y ventas).
+- **Pokéreloj**: chat, reacciones y registro en todas las salas.
+- **Generación IV** en ajedrez (Palkia, Dialga, Luxray, Milotic, Probopass, Bidoof), damas (Gible→Garchomp) y damas chinas.
+- Tablero dinámico en pixel art estilo PokéSurvivor (dibujos propios generados con `tools/make-props.js`) y fuente Pixelify Sans.
 
 **v7 — comer libre e icono**
 - Damas: comer ya no es obligatorio (y las cadenas se pueden cortar). La regla clásica sigue disponible como opción "Comer obligatorio".

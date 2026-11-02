@@ -31,8 +31,10 @@
           <button class="seg active" data-v="chess">♟ Ajedrez</button>
           <button class="seg" data-v="draughts">⛀ Damas</button>
           <button class="seg" data-v="checkers">✦ Damas chinas</button>
+          <button class="seg" data-v="route">🏅 Ruta de Medallas</button>
         </div>
-        <div class="field-label">Tu generación</div>
+        <p id="route-note" class="muted small hidden">De 2 a 4 jugadores: crea la sala y comparte el código, o juega contra bots. Tu Pokémon lo eliges en la sala.</p>
+        <div class="field-label" id="gen-label">Tu generación</div>
         <div class="gen-pick" id="home-gens"></div>
         <button id="btn-create" class="btn primary">Crear sala online</button>
         <button id="btn-bot" class="btn bot-btn"><span class="px-robot" aria-hidden="true"></span> Jugar contra el bot</button>
@@ -106,6 +108,7 @@
   <script src="/shared/boards.js"></script>
   <script src="/shared/checkers.js"></script>
   <script src="/shared/draughts.js"></script>
+  <script src="/shared/route.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

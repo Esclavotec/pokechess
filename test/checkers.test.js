@@ -99,3 +99,23 @@ test('Generación III: piezas pedidas y rey/reina en pareja', () => {
   assert.strictEqual(Gens.GENERATIONS[3].checkers.length, 10);
   for (const gen of [1, 2]) assert.strictEqual(Gens.GENERATIONS[gen].checkers.length, 10);
 });
+
+test('Generación IV: Palkia, Dialga, Luxray, Milotic, Probopass y Bidoof; Gible→Garchomp; 10 de Sinnoh', () => {
+  const g4 = Gens.GENERATIONS[4];
+  const names = (k) => g4.pieces[k].map((x) => x.name);
+  assert.deepStrictEqual(names('k'), ['Palkia']);
+  assert.deepStrictEqual(names('q'), ['Dialga']);
+  assert.deepStrictEqual(names('n'), ['Luxray']);
+  assert.deepStrictEqual(names('b'), ['Milotic']);
+  assert.deepStrictEqual(names('r'), ['Probopass']);
+  assert.deepStrictEqual(names('p'), ['Bidoof']);
+  assert.deepStrictEqual([g4.draughts.man.name, g4.draughts.king.name], ['Gible', 'Garchomp']);
+  assert.strictEqual(g4.checkers.length, 10);
+  // Se puede jugar con ella en una sala
+  const m = new RoomManager();
+  const { room, token } = m.create(4, 'Ash');
+  const guest = m.join(room.code, 'Gary', 4);
+  room.setReady(token, true);
+  room.setReady(guest.token, true);
+  assert.strictEqual(room.status, 'playing');
+});

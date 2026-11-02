@@ -10,6 +10,8 @@
  */
 import { Chess } from '/vendor/chess.js';
 import { loadMeta, MonSprite, dirFromDelta, hydrateThumbs } from './sprites.js';
+import { createRouteUI } from './route-ui.js';
+import { createPoketch } from './poketch.js';
 
 const Gens = window.PokeGenerations;
 const Boards = window.PokeBoards;
@@ -85,6 +87,12 @@ function handle(msg) {
     state = msg.state;
     if (!prev || prev.status !== state.status) selected = null;
     render(prev);
+  } else if (msg.type === 'chat') {
+    poketch.message(msg.item);
+  } else if (msg.type === 'chatHistory') {
+    poketch.history(msg.items);
+  } else if (msg.type === 'typing') {
+    poketch.typing(msg.name);
   } else if (msg.type === 'error') {
     toast(msg.message);
     // Si la sala ya no existe o el token no vale, volvemos al inicio
@@ -116,11 +124,23 @@ function show(screen) {
 }
 
 function render(prev) {
+  poketch.setVisible(!!state);
   if (!state) return show('home');
   $('room-badge').textContent = `Sala ${state.code}`;
   $('room-badge').classList.remove('hidden');
-  if (state.status === 'lobby') { show('lobby'); renderLobby(); }
+  if (state.kind === 'route') {
+    if (state.status === 'lobby') { routeUI.reset(); show('lobby'); renderBoardsPick(); routeUI.renderLobby(); }
+    else { show('game'); routeUI.renderGame(prev); }
+  } else if (state.status === 'lobby') { show('lobby'); renderLobby(); }
   else { show('game'); renderGame(prev); }
+  poketch.refreshLog();
+}
+
+/** Líneas del registro de la partida para el Pokéreloj. */
+function gameLog() {
+  if (!state) return [];
+  if (state.kind === 'route') return state.rs ? state.rs.log.map((l) => l.text) : [];
+  return (state.history || []).map((h, i) => (state.game === 'chess' ? `${Math.floor(i / 2) + 1}${i % 2 ? '…' : '.'} ${h}` : h));
 }
 
 /** Tarjetas de generación con su rey, reina y peón animados. */
@@ -142,7 +162,17 @@ function renderLobby() {
   renderGameSettings();
   renderRules();
 
-  // Tableros (los elige el anfitrión)
+  renderBoardsPick();
+  $('board-note').textContent = state.bot
+    ? 'Elige el tablero, tus piezas y las del bot.'
+    : state.isHost
+      ? 'Como anfitrión eliges el tablero. Cada jugador elige su generación y sus piezas.'
+      : 'El anfitrión elige el tablero. Tú eliges tu generación y tus piezas.';
+  renderLobbyPanels();
+}
+
+/** Tableros temáticos (los elige el anfitrión). */
+function renderBoardsPick() {
   const opts = [{ id: 'random', name: 'Aleatorio', region: 'Sorpresa' }, ...Boards.BOARDS];
   $('lobby-boards').innerHTML = opts.map((b) => `
     <button class="board-card ${state.board === b.id ? 'active' : ''}" data-board="${b.id}" ${state.isHost ? '' : 'disabled'}>
@@ -150,12 +180,10 @@ function renderLobby() {
       <div class="t">${b.name}</div><div class="r">${b.region}</div>
     </button>`).join('');
   if (state.isHost) $('lobby-boards').querySelectorAll('.board-card').forEach((b) => (b.onclick = () => send({ type: 'board', board: b.dataset.board })));
-  $('board-note').textContent = state.bot
-    ? 'Elige el tablero, tus piezas y las del bot.'
-    : state.isHost
-      ? 'Como anfitrión eliges el tablero. Cada jugador elige su generación y sus piezas.'
-      : 'El anfitrión elige el tablero. Tú eliges tu generación y tus piezas.';
+}
 
+/** Paneles de los dos jugadores en el lobby de ajedrez, damas y damas chinas. */
+function renderLobbyPanels() {
   const me = state.you;
   const rival = me === 'w' ? 'b' : 'w';
   setHtml($('my-panel'), playerPanel(me, true));
@@ -327,6 +355,7 @@ function viewPos(sq, flip) {
 }
 
 function renderGame(prev) {
+  if ($('route-panel')) $('route-panel').remove();
   if (state.game === 'checkers') return renderCheckers(prev);
   if (state.game === 'draughts') return renderDraughts(prev);
   $('board').className = 'board';
@@ -1043,6 +1072,12 @@ async function init() {
   };
   $('home-game').querySelectorAll('.seg').forEach((b) => (b.onclick = () => {
     homeGame = b.dataset.v;
+    // En Ruta de Medallas el Pokémon se elige en la sala, no por generación
+    const route = homeGame === 'route';
+    $('home-gens').classList.toggle('hidden', route);
+    $('gen-label').classList.toggle('hidden', route);
+    $('route-note').classList.toggle('hidden', !route);
+    $('btn-bot').innerHTML = `${ROBOT} ${route ? 'Jugar contra bots' : 'Jugar contra el bot'}`;
     $('home-game').querySelectorAll('.seg').forEach((x) => x.classList.toggle('active', x === b));
   }));
   $('btn-create').onclick = () => send({ type: 'create', gen: homeGen, name: name(), game: homeGame });
@@ -1068,5 +1103,15 @@ async function init() {
     else if (urlCode) $('join-code').value = urlCode.toUpperCase();
   });
 }
+
+// Ruta de Medallas y Pokéreloj (necesitan las utilidades de arriba)
+const routeUI = createRouteUI({ $, send, setHtml, thumb, toast, escapeHtml, hydrate: hydrateThumbs, getState: () => state });
+const poketch = createPoketch({
+  send,
+  escapeHtml,
+  getLog: gameLog,
+  getStage: () => (state && state.kind === 'route' && $('route-stage')) || (state && state.status !== 'lobby' ? $('board-wrap') : $('screen-lobby')),
+  tokenSprite: (seat) => routeUI.tokenSprite(seat),
+});
 
 init();

@@ -26,8 +26,8 @@ const Checkers = require('../shared/checkers');
 const Draughts = require('../shared/draughts');
 const GAMES = ['chess', 'draughts', 'checkers'];
 
-/** Error "esperado" cuyo mensaje se puede mostrar al jugador. */
-class RoomError extends Error {}
+const { RoomError } = require('./errors');
+const { RouteRoom } = require('./routeRoom');
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I para evitar confusiones
 
@@ -183,6 +183,17 @@ class Room {
   setConnected(token, connected) {
     this.seats[this.colorOf(token)].connected = connected;
     this.touch();
+  }
+
+  nameOf(token) { return this.seats[this.colorOf(token)].name; }
+
+  /** Pokémon que representa al jugador en el chat: su rey, su primera ficha o su ficha de damas. */
+  monOf(token) {
+    const color = this.colorOf(token);
+    const s = this.seats[color];
+    const g = Gens.GENERATIONS[s.gen];
+    const mon = this.game === 'checkers' ? g.checkers[0] : this.game === 'draughts' ? g.draughts.man : Gens.pokemonFor(s.gen, 'k', s.choices);
+    return { id: mon.id, shiny: color === 'b' };
   }
 
   /** Cada jugador elige SU generación (solo en el lobby). Reinicia sus variantes. */
@@ -461,9 +472,15 @@ class RoomManager {
   /** Crea una sala; el creador es el anfitrión y juega con blancas. */
   create(gen, name, game = 'chess') {
     if (!Gens.GENERATIONS[Number(gen)]) throw new RoomError('Generación no disponible');
-    if (!GAMES.includes(game)) throw new RoomError('Juego no disponible');
+    if (!GAMES.includes(game) && game !== 'route') throw new RoomError('Juego no disponible');
     let code;
     do code = randomCode(); while (this.rooms.has(code));
+    if (game === 'route') {
+      // Ruta de Medallas: sala propia de hasta 4 asientos
+      const room = new RouteRoom(code);
+      this.rooms.set(code, room);
+      return { room, ...room.addPlayer(name) };
+    }
     const room = new Room(code);
     room.game = game;
     this.rooms.set(code, room);
@@ -473,6 +490,11 @@ class RoomManager {
   /** Partida contra el bot: el jugador es anfitrión (blancas) y el bot ocupa las negras. */
   createBot(gen, name, level = 'normal', game = 'chess') {
     const res = this.create(gen, name, game);
+    if (game === 'route') {
+      res.room.botLevel = BOT_LEVELS.includes(level) ? level : 'normal';
+      res.room.addBot();
+      return res;
+    }
     res.room.addBot(level);
     return res;
   }

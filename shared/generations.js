@@ -76,6 +76,24 @@
       ],
       draughts: { man: { id: 371, name: 'Bagon' }, king: { id: 373, name: 'Salamence' } },
     },
+    4: {
+      name: 'Generación IV',
+      region: 'Sinnoh',
+      pieces: {
+        p: [{ id: 399, name: 'Bidoof' }],
+        n: [{ id: 405, name: 'Luxray' }],
+        b: [{ id: 350, name: 'Milotic' }],
+        r: [{ id: 476, name: 'Probopass' }],
+        q: [{ id: 483, name: 'Dialga' }],
+        k: [{ id: 484, name: 'Palkia' }],
+      },
+      checkers: [
+        { id: 387, name: 'Turtwig' }, { id: 390, name: 'Chimchar' }, { id: 393, name: 'Piplup' },
+        { id: 403, name: 'Shinx' }, { id: 427, name: 'Buneary' }, { id: 417, name: 'Pachirisu' },
+        { id: 431, name: 'Glameow' }, { id: 447, name: 'Riolu' }, { id: 446, name: 'Munchlax' }, { id: 443, name: 'Gible' },
+      ],
+      draughts: { man: { id: 443, name: 'Gible' }, king: { id: 445, name: 'Garchomp' } },
+    },
   };
 
   const PIECE_NAMES = { p: 'Peón', n: 'Caballo', b: 'Alfil', r: 'Torre', q: 'Reina', k: 'Rey' };

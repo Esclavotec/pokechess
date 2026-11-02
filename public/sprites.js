@@ -73,7 +73,9 @@ function visibleBox(id) {
  * layout 'thumb': miniatura que llena el canvas.
  */
 export class MonSprite {
-  constructor(canvas, id, shiny, layout = 'thumb') {
+  /** opts.still: dibuja solo el primer fotograma y deja de animarse (miniaturas del buscador). */
+  constructor(canvas, id, shiny, layout = 'thumb', opts = {}) {
+    this.still = !!opts.still;
     this.canvas = canvas;
     this.id = id;
     this.shiny = shiny;
@@ -188,7 +190,7 @@ export function dirFromDelta(dx, dy) {
 export function hydrateThumbs(root) {
   root.querySelectorAll('canvas[data-mon]').forEach((cv) => {
     if (cv._sprite) return;
-    cv._sprite = new MonSprite(cv, Number(cv.dataset.mon), cv.dataset.shiny === '1', 'thumb');
+    cv._sprite = new MonSprite(cv, Number(cv.dataset.mon), cv.dataset.shiny === '1', 'thumb', { still: cv.dataset.still === '1' });
   });
 }
 
@@ -199,8 +201,9 @@ function tick(now) {
   last = now;
   for (const s of active) {
     if (!s.canvas.isConnected) { active.delete(s); continue; }
-    if (!reduceMotion.matches || !s.loop) s.step(ticks);
+    if (!s.still && (!reduceMotion.matches || !s.loop)) s.step(ticks);
     if (s.dirty) s.draw();
+    if (s.still && !s.dirty) active.delete(s); // ya está dibujada: no hace falta seguir
   }
   requestAnimationFrame(tick);
 }

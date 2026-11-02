@@ -18,10 +18,14 @@
  *   { type: 'rules', attentive }         (anfitrión) modo atento o clásico
  *   { type: 'drRules', forced }          (anfitrión, damas) comer obligatorio (true) o libre (false)
  *   { type: 'resign' } | { type: 'rematch' }
+ *   Ruta de Medallas (sala de 4): pick · ready · addBot · removeBot · target · board · botOptions
+ *     route {action} (ver shared/route.js) · resign · rematch
+ *   Pokéreloj (todas las salas): { type: 'chat', text } · { type: 'react', kind } · { type: 'typing' }
  * Servidor -> cliente:
  *   { type: 'joined', code, token, color }   guardar token para reconectar
  *   { type: 'state', state }                 estado completo de la sala
  *   { type: 'error', message }
+ *   { type: 'chat', item } · { type: 'chatHistory', items } · { type: 'typing', name, seat }
  */
 const http = require('http');
 const path = require('path');
@@ -31,6 +35,12 @@ const { RoomManager, RoomError } = require('./rooms');
 const Bot = require('./bot');
 const CheckersBot = require('./checkersBot');
 const DraughtsBot = require('./draughtsBot');
+const Route = require('../shared/route');
+
+/** Reacciones rápidas del Pokéreloj (clave -> texto). */
+const REACTIONS = { gg: '¡GG!', nice: '¡Bien jugado!', noo: '¡Noooo!', ouch: '¡Eso dolió!', lol: '¡Jajaja!', turn: '¡Te toca!', wow: '¡Increíble!' };
+const CHAT_KEEP = 50;
+const ROUTE_TYPES = new Set(['pick', 'ready', 'addBot', 'removeBot', 'target', 'board', 'botOptions', 'route', 'resign', 'rematch']);
 
 /**
  * @param {object} [opts]
@@ -67,6 +77,7 @@ function createServer({ botDelayMs = 900 } = {}) {
    * pero está limitado en tiempo (ver LEVELS en bot.js).
    */
   function scheduleBot(room) {
+    if (room.kind === 'route') return scheduleRouteBot(room);
     if (room.botThinking || !room.botToMove()) return;
     room.botThinking = true;
     broadcast(room); // el cliente muestra "pensando…"
@@ -97,10 +108,67 @@ function createServer({ botDelayMs = 900 } = {}) {
     }, botDelayMs + extra);
   }
 
+  // ---------- Pokéreloj: chat y reacciones ----------
+  function sendRoom(room, payload, except) {
+    const data = JSON.stringify(payload);
+    for (const ws of wss.clients) {
+      if (ws !== except && ws.session && ws.session.code === room.code && ws.readyState === 1) ws.send(data);
+    }
+  }
+
+  function pushChat(room, item) {
+    room.chat = room.chat || [];
+    room.chatSeq = (room.chatSeq || 0) + 1;
+    const full = { id: room.chatSeq, at: Date.now(), ...item };
+    room.chat.push(full);
+    if (room.chat.length > CHAT_KEEP) room.chat.shift();
+    sendRoom(room, { type: 'chat', item: full });
+  }
+
+  /** Mensaje o reacción de un jugador (con límite de 1 por segundo). */
+  function chatFrom(room, token, item) {
+    room.chatLast = room.chatLast || {};
+    const now = Date.now();
+    if (now - (room.chatLast[token] || 0) < 1000) throw new RoomError('Espera un segundo antes de enviar otro mensaje');
+    room.chatLast[token] = now;
+    pushChat(room, { seat: room.colorOf(token), name: room.nameOf(token), mon: room.monOf(token), ...item });
+  }
+
+  function botReact(room, token, kind) {
+    try { pushChat(room, { seat: room.colorOf(token), name: room.nameOf(token), mon: room.monOf(token), kind: 'react', react: kind, text: REACTIONS[kind], bot: true }); } catch { /* sin asiento */ }
+  }
+
+  // ---------- Ruta de Medallas: pasos del bot ----------
+  function scheduleRouteBot(room) {
+    if (room.botThinking || !room.botToMove()) return;
+    room.botThinking = true;
+    broadcast(room);
+    setTimeout(() => {
+      room.botThinking = false;
+      try {
+        const step = room.botStep();
+        const rs = room.rs;
+        if (step && rs) {
+          // Reacciones de los bots: "¡Eso dolió!" al perder un combate y "¡GG!" al terminar
+          if (rs.battle) {
+            const loserSeat = room.seats[room.order[rs.battle.loser]];
+            if (loserSeat && loserSeat.isBot) botReact(room, loserSeat.token, 'ouch');
+          }
+          if (room.status === 'over') for (const s of room.seats) if (s && s.isBot) botReact(room, s.token, 'gg');
+        }
+      } catch (err) {
+        console.error('Error del bot (ruta):', err);
+      }
+      broadcast(room);
+      scheduleRouteBot(room);
+    }, room.botDelay(botDelayMs));
+  }
+
   function attach(ws, room, token, color) {
     ws.session = { code: room.code, token };
     room.setConnected(token, true);
     ws.send(JSON.stringify({ type: 'joined', code: room.code, token, color }));
+    ws.send(JSON.stringify({ type: 'chatHistory', items: room.chat || [] }));
     broadcast(room);
     scheduleBot(room); // p. ej. al reconectar en mitad del turno del bot
   }
@@ -134,6 +202,28 @@ function createServer({ botDelayMs = 900 } = {}) {
         if (!ws.session) throw new RoomError('Primero crea o únete a una sala');
         const room = manager.get(ws.session.code);
         const { token } = ws.session;
+
+        // Pokéreloj (cualquier sala)
+        if (msg.type === 'chat') {
+          const text = String(msg.text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+          if (!text) return;
+          return chatFrom(room, token, { kind: 'msg', text });
+        }
+        if (msg.type === 'react') {
+          if (!REACTIONS[msg.kind]) throw new RoomError('Reacción no disponible');
+          return chatFrom(room, token, { kind: 'react', react: msg.kind, text: REACTIONS[msg.kind] });
+        }
+        if (msg.type === 'typing') {
+          return sendRoom(room, { type: 'typing', name: room.nameOf(token), seat: room.colorOf(token) }, ws);
+        }
+
+        if (room.kind === 'route') {
+          if (!ROUTE_TYPES.has(msg.type)) throw new RoomError('Acción no disponible en Ruta de Medallas');
+          room.handle(token, msg);
+          broadcast(room);
+          scheduleBot(room);
+          return;
+        }
         switch (msg.type) {
           case 'gen': room.setGeneration(token, msg.gen); break;
           case 'board': room.setBoard(token, msg.board); break;
@@ -170,6 +260,17 @@ function createServer({ botDelayMs = 900 } = {}) {
       } catch { /* la sala ya no existe */ }
     });
   });
+
+  // Ofertas de venta caducadas (30 s) en las partidas de Ruta de Medallas
+  const offerTimer = setInterval(() => {
+    for (const room of manager.rooms.values()) {
+      if (room.kind === 'route' && room.status === 'playing' && Route.expireOffers(room.rs)) {
+        broadcast(room);
+        scheduleBot(room);
+      }
+    }
+  }, 3000);
+  server.on('close', () => clearInterval(offerTimer));
 
   // Ping cada 30 s para detectar conexiones muertas, y limpieza de salas vacías
   const timer = setInterval(() => {

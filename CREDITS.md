@@ -138,6 +138,17 @@ La Honor Ball, la Ocaso Ball, la Poké Ball del logo, el robot y el icono de pes
 tableros temáticos y el tablero de estrella de las damas chinas son dibujos propios
 hechos con SVG y CSS para este proyecto.
 
+## Datos, fuente y escenario
+
+- `assets/base-forms.json` (Pokémon que son el primero de su línea evolutiva) se generó con los datos públicos de
+  [PokeAPI](https://github.com/PokeAPI/pokeapi) (`pokemon_species.csv`).
+- Fuente **Pixelify Sans** — Copyright 2021 The Pixelify Sans Project Authors, licencia SIL Open Font License 1.1
+  (`public/fonts/OFL.txt`). Se tomó del repositorio de PokéSurvivor.
+- Los elementos del escenario de Ruta de Medallas (`public/img/props/`) son dibujos propios generados por
+  `tools/make-props.js`, **inspirados** en el estilo y las paletas de bioma de PokéSurvivor (Copyright 2026 JPTER78,
+  https://github.com/JPTER78/pokesurvivor). No se copió su código.
+- El Equipo Galaxia, los líderes de gimnasio y los lugares pertenecen al mundo Pokémon (ver "Marca").
+
 ## Marca
 
 Pokémon y todos los nombres y personajes relacionados son marcas y propiedad de
