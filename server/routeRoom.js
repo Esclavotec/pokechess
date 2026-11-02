@@ -87,6 +87,41 @@ class RouteRoom {
     this.touch();
   }
 
+  /**
+   * Un jugador sale. En plena partida se retira (sus propiedades vuelven a la Tienda) y su
+   * asiento queda como "se fue" para que los demás sigan; en el lobby el asiento se libera.
+   * Si era el anfitrión, el cargo pasa al siguiente humano. Devuelve { name, resigned }.
+   */
+  leave(token) {
+    const seatIdx = this.colorOf(token);
+    const seat = this.seats[seatIdx];
+    let resigned = false;
+    if (this.status === 'playing') {
+      const p = this.order.indexOf(seatIdx);
+      if (p >= 0 && !this.rs.players[p].out) {
+        R.act(this.rs, p, { type: 'retire' });
+        resigned = true;
+        if (this.rs.phase === 'over') this.status = 'over';
+      }
+      seat.left = true;
+      seat.connected = false;
+      seat.token = 'left-' + crypto.randomBytes(6).toString('hex'); // ya no puede volver con su token
+    } else {
+      this.seats[seatIdx] = null;
+    }
+    if (token === this.hostToken) {
+      const next = this.seats.find((s) => s && !s.isBot && !s.left);
+      this.hostToken = next ? next.token : null;
+    }
+    this.touch();
+    return { name: seat.name, resigned };
+  }
+
+  /** ¿Queda algún jugador humano en la sala? */
+  hasHumans() {
+    return this.seats.some((s) => s && !s.isBot && !s.left);
+  }
+
   isEmpty() {
     return !this.seats.some((s) => s && !s.isBot && s.connected);
   }
@@ -183,8 +218,9 @@ class RouteRoom {
       case 'rematch': {
         if (this.status !== 'over') throw new RoomError('La partida no ha terminado');
         this.rematch[seat] = true;
-        const humans = this.seats.map((s, i) => (s && !s.isBot ? i : -1)).filter((i) => i >= 0);
+        const humans = this.seats.map((s, i) => (s && !s.isBot && !s.left ? i : -1)).filter((i) => i >= 0);
         if (humans.every((i) => this.rematch[i])) {
+          this.seats = this.seats.map((s) => (s && s.left ? null : s));
           this.status = 'lobby';
           this.rs = null;
           this.order = [];
@@ -252,7 +288,7 @@ class RouteRoom {
       status: this.status,
       you,
       isHost: token === this.hostToken,
-      seats: this.seats.map((s) => (s ? { name: s.name, mon: s.mon, shiny: s.shiny, ready: s.ready, connected: s.connected, bot: s.isBot, host: s.token === this.hostToken } : null)),
+      seats: this.seats.map((s) => (s ? { name: s.name, mon: s.mon, shiny: s.shiny, ready: s.ready, connected: s.connected, bot: s.isBot, host: s.token === this.hostToken, left: !!s.left } : null)),
       target: this.target,
       board: this.board,
       activeBoard: this.activeBoard,

@@ -425,6 +425,38 @@ class Room {
     this.updatedAt = Date.now();
   }
 
+  /**
+   * Un jugador sale de la sala. En plena partida cuenta como rendición; después la sala
+   * vuelve al lobby con su asiento libre (esperando a otro rival) y, si era el anfitrión,
+   * el cargo pasa al otro jugador. Devuelve { name, resigned }.
+   */
+  leave(token) {
+    const color = this.colorOf(token);
+    const seat = this.seats[color];
+    const resigned = this.status === 'playing';
+    if (resigned) this.finish(color === 'w' ? 'b' : 'w', 'left');
+    this.seats[color] = null;
+    const other = this.seats[color === 'w' ? 'b' : 'w'];
+    if (token === this.hostToken) this.hostToken = other && !other.isBot ? other.token : null;
+    // De vuelta al lobby: el que se queda espera a un rival nuevo
+    this.status = 'lobby';
+    this.chess = new Chess();
+    this.ck = null;
+    this.dr = null;
+    this.sanHistory = [];
+    this.lastMove = null;
+    this.result = null;
+    this.rematch = { w: false, b: false };
+    if (other && !other.isBot) other.ready = false;
+    this.touch();
+    return { name: seat.name, resigned };
+  }
+
+  /** ¿Queda algún jugador humano en la sala? */
+  hasHumans() {
+    return ['w', 'b'].some((c) => this.seats[c] && !this.seats[c].isBot);
+  }
+
   isEmpty() {
     return !['w', 'b'].some((c) => this.seats[c] && !this.seats[c].isBot && this.seats[c].connected);
   }
@@ -502,6 +534,15 @@ class RoomManager {
   join(code, name, gen = 1) {
     const room = this.get(code);
     return { room, ...room.addPlayer(name, gen) };
+  }
+
+  /** Un jugador sale; si no quedan humanos, la sala se cierra. */
+  leave(code, token) {
+    const room = this.get(code);
+    const res = room.leave(token);
+    const closed = !room.hasHumans();
+    if (closed) this.rooms.delete(room.code);
+    return { room, closed, ...res };
   }
 
   get(code) {

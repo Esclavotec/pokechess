@@ -81,12 +81,17 @@ function clearSession() { try { sessionStorage.removeItem('pokechess'); } catch 
 function handle(msg) {
   if (msg.type === 'joined') {
     saveSession(msg.code, msg.token);
-    history.replaceState(null, '', `?sala=${msg.code}`);
+    if (new URLSearchParams(location.search).get('sala') === msg.code) history.replaceState({ room: msg.code }, '', `?sala=${msg.code}`);
+    else history.pushState({ room: msg.code }, '', `?sala=${msg.code}`);
   } else if (msg.type === 'state') {
     const prev = state;
     state = msg.state;
     if (!prev || prev.status !== state.status) selected = null;
     render(prev);
+  } else if (msg.type === 'left') {
+    backToHome();
+  } else if (msg.type === 'notice') {
+    toast(msg.text);
   } else if (msg.type === 'chat') {
     poketch.message(msg.item);
   } else if (msg.type === 'chatHistory') {
@@ -128,6 +133,7 @@ function render(prev) {
   if (!state) return show('home');
   $('room-badge').textContent = `Sala ${state.code}`;
   $('room-badge').classList.remove('hidden');
+  $('btn-leave').classList.remove('hidden');
   if (state.kind === 'route') {
     if (state.status === 'lobby') { routeUI.reset(); show('lobby'); renderBoardsPick(); routeUI.renderLobby(); }
     else { show('game'); routeUI.renderGame(prev); }
@@ -1112,6 +1118,59 @@ const poketch = createPoketch({
   getLog: gameLog,
   getStage: () => (state && state.kind === 'route' && $('route-stage')) || (state && state.status !== 'lobby' ? $('board-wrap') : $('screen-lobby')),
   tokenSprite: (seat) => routeUI.tokenSprite(seat),
+});
+
+// ---------- Salir de la sala ----------
+
+/** ¿Estoy jugando una partida en curso? (salir contaría como rendirse) */
+function inLiveGame() {
+  if (!state || state.status !== 'playing') return false;
+  if (state.kind === 'route') {
+    const p = state.order ? state.order.indexOf(state.you) : -1;
+    return p >= 0 && state.rs && !state.rs.players[p].out;
+  }
+  return true;
+}
+
+/** Pide confirmación si hace falta y sale de la sala. Devuelve false si se cancela. */
+function leaveRoom() {
+  if (!state) return true;
+  if (inLiveGame()) {
+    const what = state.kind === 'route' ? 'te retiras (tus propiedades vuelven a la Tienda) y los demás siguen jugando' : 'te rindes y la partida termina';
+    if (!confirm(`Si sales ahora, ${what}. ¿Salir?`)) return false;
+  }
+  send({ type: 'leave' });
+  return true;
+}
+
+/** Vuelve a la pantalla de inicio y limpia todo lo de la sala. */
+function backToHome() {
+  clearSession();
+  state = null;
+  selected = null;
+  if (location.search) history.replaceState(null, '', location.pathname);
+  routeUI.reset();
+  if (typeof pendingCleanup === 'function' && pendingCleanup) pendingCleanup();
+  for (const e of pieces.values()) removePiece(e);
+  pieces.clear();
+  piecesFen = null;
+  piecesFlip = null;
+  $('pieces').innerHTML = '';
+  $('board').innerHTML = '';
+  if ($('route-panel')) $('route-panel').remove();
+  $('room-badge').classList.add('hidden');
+  $('btn-leave').classList.add('hidden');
+  poketch.history([]);
+  render(null);
+  toast('Saliste de la sala');
+}
+
+$('btn-leave').onclick = () => leaveRoom();
+
+// Botón "atrás" del navegador o del móvil: hace lo mismo que "Salir"
+window.addEventListener('popstate', () => {
+  if (!state) return;
+  if (!leaveRoom()) history.pushState({ room: state.code }, '', `?sala=${state.code}`); // canceló: se queda
 });
 
 init();

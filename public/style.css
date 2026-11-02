@@ -844,3 +844,14 @@ canvas.wild { position: absolute; width: 11%; aspect-ratio: 1; height: auto; z-i
 @media (prefers-reduced-motion: reduce) { .poketch.buzz .pk-icon, .poketch .pk-body { animation: none !important; } }
 @media (max-width: 640px) { .pk-fold, .pk-icon { width: 52px; height: 52px; } .pk-tip { display: none; } }
 @media (max-width: 640px) { main { padding-bottom: 84px; } }
+
+/* Botón "← Salir" en la barra de arriba */
+.top-right { display: flex; align-items: center; gap: 10px; }
+.btn-leave {
+  font-family: 'Pixelify', 'Nunito', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+  color: #0b1838; background: #ffd23f; border: 2px solid #0b1838; border-radius: 8px; padding: 4px 10px;
+  box-shadow: 0 3px 0 #0b1838; transition: transform 0.1s ease;
+}
+.btn-leave:hover { transform: translateY(-1px); }
+.btn-leave:active { transform: translateY(2px); box-shadow: 0 1px 0 #0b1838; }
+@media (max-width: 420px) { .room-badge { font-size: 0.55rem; } .btn-leave { padding: 3px 8px; font-size: 0.8rem; } }

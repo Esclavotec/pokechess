@@ -20,12 +20,14 @@
  *   { type: 'resign' } | { type: 'rematch' }
  *   Ruta de Medallas (sala de 4): pick · ready · addBot · removeBot · target · board · botOptions
  *     route {action} (ver shared/route.js) · resign · rematch
+ *   { type: 'leave' }                    salir de la sala (en partida = rendirse / retirarse)
  *   Pokéreloj (todas las salas): { type: 'chat', text } · { type: 'react', kind } · { type: 'typing' }
  * Servidor -> cliente:
  *   { type: 'joined', code, token, color }   guardar token para reconectar
  *   { type: 'state', state }                 estado completo de la sala
  *   { type: 'error', message }
  *   { type: 'chat', item } · { type: 'chatHistory', items } · { type: 'typing', name, seat }
+ *   { type: 'left' } (saliste) · { type: 'notice', text } (aviso para los demás)
  */
 const http = require('http');
 const path = require('path');
@@ -202,6 +204,24 @@ function createServer({ botDelayMs = 900 } = {}) {
         if (!ws.session) throw new RoomError('Primero crea o únete a una sala');
         const room = manager.get(ws.session.code);
         const { token } = ws.session;
+
+        // Salir de la sala (cualquier juego)
+        if (msg.type === 'leave') {
+          const res = manager.leave(room.code, token);
+          // Las otras pestañas de este mismo jugador también salen
+          for (const other of wss.clients) {
+            if (other.session && other.session.token === token) {
+              other.session = null;
+              if (other.readyState === 1) other.send(JSON.stringify({ type: 'left' }));
+            }
+          }
+          if (!res.closed) {
+            sendRoom(room, { type: 'notice', text: `${res.name} salió de la sala${res.resigned ? ' (cuenta como rendición)' : ''}.` });
+            broadcast(room);
+            scheduleBot(room);
+          }
+          return;
+        }
 
         // Pokéreloj (cualquier sala)
         if (msg.type === 'chat') {

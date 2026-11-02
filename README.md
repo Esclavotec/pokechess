@@ -318,6 +318,9 @@ que no se filtren tokens, una partida completa por WebSocket con reconexión, y 
 
 ## Cambios
 
+**v8.3 — botón Salir**
+- Botón "← Salir" arriba en todas las salas (y el botón atrás del navegador): en el lobby libera tu asiento; en partida pide confirmación y cuenta como rendición (en Ruta de Medallas, retirarse). El anfitrión pasa al siguiente humano y la sala se cierra si no quedan humanos. Los demás ven un aviso.
+
 **v8.2 — Pokéreloj plegado**
 - El botón rectangular se cambia por un icono redondo en pixel art (reloj rojo con pantalla verde y bocadillo de chat, `img/props/poketch.svg`).
 - Globito amarillo con los mensajes sin leer y una pequeña vibración al llegar uno; etiqueta "Pokéreloj · chat" al pasar el ratón.
