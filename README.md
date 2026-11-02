@@ -1,0 +1,160 @@
+# PokéChess — Ajedrez Pokémon online
+
+Ajedrez para 2 jugadores en tiempo real donde las piezas son Pokémon **animados** estilo
+*Mundo Misterioso*: respiran en reposo, caminan hasta su casilla y, al comerse otra pieza,
+**atacan** mientras la víctima recibe el golpe y se debilita.
+
+- Cada jugador elige **su propia generación** y sus piezas opcionales (se puede jugar Gen I contra Gen II).
+- El anfitrión elige el **tablero**: lugares icónicos del mundo Pokémon (o aleatorio).
+- Las blancas llevan una **Honor Ball** bajo los pies y las negras una **Ocaso Ball**, además del sprite **shiny**. Sin sombras.
+
+## Piezas
+
+| Pieza | Generación I (Kanto) | Generación II (Johto) |
+|---|---|---|
+| Peón | Caterpie | Weedle |
+| Caballo | Tauros **o** Rapidash | Arcanine **o** Ninetales |
+| Alfil | Arbok **o** Onix | Kingdra |
+| Torre | Snorlax | Tyranitar |
+| Reina | Mew | Lugia |
+| Rey | Mewtwo | Ho-Oh |
+
+## Tableros
+
+Ruta 1 · Pueblo Paleta · Monte Moon · Gimnasio de Ciudad Plateada · Torre Campana · Islas Remolino · Meseta Añil.
+Son dibujos propios hechos con CSS (`.theme-<id>` en `public/style.css`).
+
+## Instalar y arrancar
+
+Requisitos: Node.js 18 o superior.
+
+```bash
+npm install
+npm start
+```
+
+Abre <http://localhost:3000>. El puerto se cambia con la variable `PORT`.
+Los sprites están incluidos en el proyecto: no hace falta internet para verlos.
+
+## Cómo jugar
+
+1. Escribe tu nombre, elige tu generación y pulsa **Crear sala**. Juegas con blancas (Honor Ball).
+2. Comparte el **código de 5 letras** o **Copiar link** con tu rival.
+3. Tu rival elige su generación y entra con el código. Juega con negras (Ocaso Ball, shiny).
+4. En el lobby: cada uno puede cambiar su generación y sus variantes (caballo/alfil); el anfitrión elige el tablero. Pulsad **¡Listo!**.
+5. Clic en una pieza para ver sus jugadas legales y clic en el destino. Al coronar eliges la pieza viendo los Pokémon.
+6. Al terminar (mate, tablas o rendición) pulsad **Revancha**: volvéis al lobby con los colores intercambiados.
+
+Si recargas la página vuelves a tu asiento (el token se guarda por pestaña en `sessionStorage`).
+
+## Animaciones
+
+Cada hoja de sprites tiene los fotogramas en columnas y 8 direcciones en filas.
+`assets/sprite-meta.json` indica para cada Pokémon y animación el tamaño de fotograma,
+cuántos hay, cuánto dura cada uno y el punto de anclaje (los pies).
+
+| Momento | Animación |
+|---|---|
+| En reposo | `Idle` mirando al frente |
+| Al mover | `Walk` en la dirección del movimiento mientras se desliza hasta la casilla (en el enroque camina también la torre) |
+| Al capturar | El atacante hace `Attack` o `Shoot` (al azar); la víctima hace `Hurt`, luego `Faint`, y desaparece |
+
+Para que **todas las casillas y piezas tengan la misma dimensión**, se mide la caja visible del primer
+fotograma de reposo de cada Pokémon y se escala para ocupar el mismo espacio en su casilla.
+Con "reducir movimiento" activado en el sistema, las piezas no se animan.
+
+## Jugar online
+
+- **Misma red Wi-Fi:** tu rival abre `http://TU-IP-LOCAL:3000`.
+- **Internet:** desplegado en Render (servicio web Node, `npm install` / `npm start`). El WebSocket usa la misma URL (`/ws`) con `wss`.
+  En el plan gratuito el servidor se duerme tras un rato sin uso: la primera visita tarda ~30 s y las salas se pierden al reiniciarse.
+
+## Estructura
+
+```
+pokechess/
+├─ server/
+│  ├─ server.js      Express (archivos + sprites) y WebSocket /ws
+│  └─ rooms.js       Salas, generación por jugador, tablero, turnos y reglas (chess.js)
+├─ shared/
+│  ├─ generations.js Pokémon de cada pieza por generación (Node y navegador)
+│  └─ boards.js      Lista de tableros temáticos
+├─ public/
+│  ├─ index.html     Pantallas: inicio, lobby y partida
+│  ├─ app.js         Cliente: conexión, lobby, tablero, animación de jugadas
+│  ├─ sprites.js     Dibujo y animación de sprites en <canvas>
+│  ├─ style.css      Estilos y tableros temáticos
+│  └─ img/           Honor Ball y Ocaso Ball (SVG)
+├─ assets/
+│  ├─ pokemon/       966 Pokémon × animaciones (normal y shiny/s)
+│  └─ sprite-meta.json
+└─ test/             Pruebas con node --test
+```
+
+```mermaid
+flowchart LR
+  A[Navegador blancas] <-- WebSocket --> S[server.js]
+  B[Navegador negras] <-- WebSocket --> S
+  S --> R[rooms.js<br/>salas + chess.js]
+  S -. /assets .-> SP[(Sprites animados<br/>+ sprite-meta.json)]
+  A & B --> C[sprites.js<br/>canvas animado]
+```
+
+El **servidor es la autoridad**: comprueba que sea tu turno y que la jugada sea legal
+(enroque, al paso, coronación) y detecta jaque mate, ahogado, triple repetición,
+material insuficiente y la regla de 50 jugadas.
+
+### Protocolo WebSocket (JSON)
+| Cliente → servidor | Para qué |
+|---|---|
+| `create {gen, name}` | crear sala con tu generación |
+| `join {code, name, gen}` | unirte con tu generación |
+| `resume {code, token}` | volver tras recargar |
+| `gen {gen}` | cambiar **tu** generación |
+| `board {board}` | (anfitrión) tablero: id de `shared/boards.js` o `random` |
+| `choose {choices}` | variantes, p. ej. `{ n: 1, b: 0 }` |
+| `ready {ready}` | listo / no listo |
+| `move {from, to, promotion}` | mover |
+| `resign`, `rematch` | rendirse / revancha |
+
+El servidor responde con `joined {code, token, color}`, `state {state}` o `error {message}`.
+
+## Añadir una generación
+
+Ya están descargados los sprites de 966 Pokémon. Solo hay que añadir una entrada en
+`shared/generations.js` con el número de Pokédex de cada pieza:
+
+```js
+3: {
+  name: 'Generación III', region: 'Hoenn',
+  pieces: { p: [{ id: 265, name: 'Wurmple' }], n: [...], b: [...], r: [...], q: [...], k: [...] },
+},
+```
+
+## Pruebas
+
+```bash
+npm test
+```
+
+15 pruebas: piezas por generación, generación por jugador, tablero (solo anfitrión, aleatorio),
+salas, variantes, turnos, jugadas ilegales, mate del pastor, rendición y revancha, coronación,
+que no se filtren tokens, una partida completa por WebSocket con reconexión, y que estén los
+966 Pokémon y que las hojas de cada pieza cuadren con sus metadatos.
+
+## Cambios
+
+**v2**
+- Cada jugador elige su generación (antes la elegía el anfitrión para los dos).
+- Sprites animados de SpriteCollab (vía PokéSurvivor) en lugar de imágenes fijas: reposo, caminar, ataque al capturar, daño y derrota.
+- Casillas y piezas del mismo tamaño.
+- Sin sombras: insignia de Honor Ball (blancas) y Ocaso Ball (negras).
+- Tableros de lugares icónicos.
+- Descargada la colección completa (966 Pokémon) para próximas generaciones.
+
+## Créditos y licencia
+
+Los sprites son de [SpriteCollab](https://github.com/PMDCollab/SpriteCollab), con licencia CC BY-NC 4.0 (no comercial y con atribución).
+Se tomaron de [PokéSurvivor](https://github.com/JPTER78/pokesurvivor). Los artistas aparecen en [CREDITS.md](CREDITS.md).
+Pokémon pertenece a Nintendo, Creatures Inc., GAME FREAK y The Pokémon Company.
+Este es un proyecto de fans sin ánimo de lucro.

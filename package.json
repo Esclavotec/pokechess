@@ -1,0 +1,20 @@
+{
+  "name": "pokechess",
+  "version": "1.0.0",
+  "description": "Ajedrez Pokémon online para 2 jugadores (Gen 1 y Gen 2)",
+  "main": "server/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "chess.js": "^1.0.0",
+    "express": "^4.22.3",
+    "ws": "^8.22.1"
+  }
+}

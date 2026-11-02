@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PokéChess</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="logo"><span class="ball"></span>PokéChess</div>
+    <div id="room-badge" class="room-badge hidden"></div>
+  </header>
+
+  <main>
+    <!-- Pantalla 1: crear o unirse -->
+    <section id="screen-home" class="screen">
+      <div class="card hero">
+        <h1>Ajedrez Pokémon</h1>
+        <p class="muted">Elige tu generación, crea una sala y comparte el código con tu rival.</p>
+        <label class="field">Tu nombre
+          <input id="name" maxlength="16" placeholder="Ash">
+        </label>
+        <div class="field-label">Tu generación</div>
+        <div class="gen-pick" id="home-gens"></div>
+        <button id="btn-create" class="btn primary">Crear sala</button>
+        <div class="divider"><span>o únete</span></div>
+        <div class="join-row">
+          <input id="join-code" maxlength="5" placeholder="CÓDIGO" autocapitalize="characters">
+          <button id="btn-join" class="btn">Unirse</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pantalla 2: lobby (generación, variantes, listo) -->
+    <section id="screen-lobby" class="screen hidden">
+      <div class="card">
+        <div class="share">
+          <div>
+            <div class="muted small">Código de sala</div>
+            <div id="lobby-code" class="code"></div>
+          </div>
+          <button id="btn-copy" class="btn small">Copiar link</button>
+        </div>
+        <h2>Tablero</h2>
+        <div class="board-pick" id="lobby-boards"></div>
+        <p id="board-note" class="muted small"></p>
+      </div>
+      <div class="lobby-grid">
+        <div class="card" id="my-panel"></div>
+        <div class="card" id="rival-panel"></div>
+      </div>
+    </section>
+
+    <!-- Pantalla 3: partida -->
+    <section id="screen-game" class="screen hidden">
+      <div class="game">
+        <div class="board-col">
+          <div class="player-bar" id="bar-top"></div>
+          <div id="board-wrap" class="board-wrap">
+            <div id="board" class="board"></div>
+            <div id="pieces" class="pieces"></div>
+          </div>
+          <div id="board-name" class="board-name"></div>
+          <div class="player-bar" id="bar-bottom"></div>
+        </div>
+        <aside class="side card">
+          <div id="status" class="status"></div>
+          <h3>Jugadas</h3>
+          <ol id="history" class="history"></ol>
+          <div class="actions">
+            <button id="btn-resign" class="btn danger">Rendirse</button>
+            <button id="btn-rematch" class="btn primary hidden">Revancha</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <!-- Elegir pieza al coronar -->
+  <div id="promo" class="modal hidden">
+    <div class="card">
+      <h3>¡Tu peón evoluciona!</h3>
+      <div id="promo-options" class="promo-options"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/shared/generations.js"></script>
+  <script src="/shared/boards.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
