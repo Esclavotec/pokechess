@@ -1,10 +1,11 @@
-# PokéChess — Ajedrez Pokémon online
+# PokéChess — Ajedrez y damas chinas Pokémon online
 
 Ajedrez para 2 jugadores en tiempo real donde las piezas son Pokémon **animados** estilo
 *Mundo Misterioso*: respiran en reposo, caminan hasta su casilla y, al comerse otra pieza,
 **atacan** mientras la víctima recibe el golpe y se debilita.
 
-- Cada jugador elige **su propia generación** y sus piezas opcionales (se puede jugar Gen I contra Gen II).
+- Dos juegos: **ajedrez** y **damas chinas** (tablero de estrella), online o contra el bot.
+- Cada jugador elige **su propia generación** (I, II o III) y sus piezas opcionales (se puede jugar Gen I contra Gen III).
 - El anfitrión elige el **tablero**: lugares icónicos del mundo Pokémon (o aleatorio).
 - Las blancas llevan una **Honor Ball** bajo los pies y las negras una **Ocaso Ball**, además del sprite **shiny**. Sin sombras.
 - **Modo contra el bot** con tres dificultades: Fácil, Normal y Difícil.
@@ -21,6 +22,35 @@ Ajedrez para 2 jugadores en tiempo real donde las piezas son Pokémon **animados
 | Torre | Snorlax | Tyranitar |
 | Reina | Mew | Lugia |
 | Rey | Mewtwo | Ho-Oh |
+
+| Pieza | Generación III (Hoenn) |
+|---|---|
+| Peón | Wurmple |
+| Caballo | Donphan **o** Girafarig |
+| Alfil | Huntail |
+| Torre | Registeel |
+| Rey y reina (en pareja) | **Groudon y Kyogre** o **Latios y Latias** |
+
+En Gen III el rey y la reina se eligen juntos: al escoger Latios, la reina pasa a ser Latias.
+
+## Damas chinas
+
+Tablero de estrella de 121 huecos para 2 jugadores, en puntas opuestas, con 10 fichas cada uno.
+
+- En tu turno mueves una ficha a un **hueco vecino** o **saltas** por encima de cualquier ficha (tuya o rival) a un hueco libre justo detrás, **encadenando** todos los saltos que quieras.
+- **Gana** quien llena la punta contraria con al menos una ficha propia dentro (así nadie puede bloquearte dejando fichas en tu meta).
+- **Tablas** a las 200 jugadas.
+- Al seleccionar una ficha se marcan todos sus destinos; las fichas caminan hueco a hueco y dan saltitos en los saltos.
+- Quien juega con negras ve la estrella girada, con sus fichas abajo.
+
+| Generación | Las 10 fichas |
+|---|---|
+| I | Pikachu, Bulbasaur, Charmander, Squirtle, Eevee, Jigglypuff, Psyduck, Meowth, Clefairy, Gengar |
+| II | Chikorita, Cyndaquil, Totodile, Togepi, Marill, Pichu, Mareep, Sneasel, Teddiursa, Umbreon |
+| III | Treecko, Torchic, Mudkip, Ralts, Skitty, Mawile, Aron, Plusle, Minun, Absol |
+
+**Bot de damas chinas** (`server/checkersBot.js`): mide cuánto le falta a cada bando (distancia de cada ficha al vértice de su meta, castigando la ficha más atrasada).
+Fácil elige al azar entre las 5 jugadas que más avanzan; Normal elige la que deja mejor posición; Difícil también piensa en tu mejor respuesta.
 
 ## Tableros
 
@@ -41,7 +71,7 @@ Los sprites están incluidos en el proyecto: no hace falta internet para verlos.
 
 ## Cómo jugar
 
-1. Escribe tu nombre, elige tu generación y pulsa **Crear sala**. Juegas con blancas (Honor Ball).
+1. Escribe tu nombre, elige **juego** (ajedrez o damas chinas) y tu generación, y pulsa **Crear sala online**. Juegas con blancas (Honor Ball).
 2. Comparte el **código de 5 letras** o **Copiar link** con tu rival.
 3. Tu rival elige su generación y entra con el código. Juega con negras (Ocaso Ball, shiny).
 4. En el lobby: cada uno puede cambiar su generación y sus variantes (caballo/alfil); el anfitrión elige el tablero. Pulsad **¡Listo!**.
@@ -115,10 +145,12 @@ pokechess/
 ├─ server/
 │  ├─ server.js      Express (archivos + sprites) y WebSocket /ws
 │  ├─ rooms.js       Salas, generación por jugador, tablero, turnos, reglas y asiento del bot
-│  └─ bot.js         Cerebro del bot (minimax alfa-beta, 3 dificultades)
+│  ├─ bot.js         Cerebro del bot de ajedrez (minimax alfa-beta, 3 dificultades)
+│  └─ checkersBot.js Bot de damas chinas
 ├─ shared/
 │  ├─ generations.js Pokémon de cada pieza por generación (Node y navegador)
-│  └─ boards.js      Lista de tableros temáticos
+│  ├─ boards.js      Lista de tableros temáticos
+│  └─ checkers.js    Reglas de las damas chinas (Node y navegador)
 ├─ public/
 │  ├─ index.html     Pantallas: inicio, lobby y partida
 │  ├─ app.js         Cliente: conexión, lobby, tablero, animación de jugadas
@@ -147,8 +179,9 @@ material insuficiente y la regla de 50 jugadas.
 ### Protocolo WebSocket (JSON)
 | Cliente → servidor | Para qué |
 |---|---|
-| `create {gen, name}` | crear sala con tu generación |
-| `createBot {gen, name, level}` | partida contra el bot (`easy` · `normal` · `hard`) |
+| `create {gen, name, game}` | crear sala con tu generación; `game`: `chess` · `checkers` |
+| `createBot {gen, name, level, game}` | partida contra el bot (`easy` · `normal` · `hard`) |
+| `game {game}` | (anfitrión) cambiar entre ajedrez y damas chinas |
 | `botOptions {level?, gen?, choices?, random?}` | (contra el bot) dificultad, generación y piezas del bot |
 | `color {pref}` | (contra el bot) tu color: `w` · `b` · `random` |
 | `rules {attentive}` | (anfitrión) modo atento (`true`) o clásico (`false`) |
@@ -158,7 +191,7 @@ material insuficiente y la regla de 50 jugadas.
 | `board {board}` | (anfitrión) tablero: id de `shared/boards.js` o `random` |
 | `choose {choices}` | variantes, p. ej. `{ n: 1, b: 0 }` |
 | `ready {ready}` | listo / no listo |
-| `move {from, to, promotion}` | mover |
+| `move {from, to, promotion}` | mover (en damas chinas `from`/`to` son huecos `"q,r"`) |
 | `resign`, `rematch` | rendirse / revancha |
 
 El servidor responde con `joined {code, token, color}`, `state {state}` o `error {message}`.
@@ -181,7 +214,7 @@ Ya están descargados los sprites de 966 Pokémon. Solo hay que añadir una entr
 npm test
 ```
 
-28 pruebas. Del modo atento: está activo por defecto y solo lo cambia el anfitrión, se puede ignorar el jaque y comerse al rey gana, el "mate" no termina la partida, las reglas clásicas siguen igual, el bot se come un rey desprotegido y mueve aunque no tenga jugadas legales. Del bot: siempre juega legal (partidas bot contra bot), todos los niveles ven el mate en 1,
+35 pruebas. De damas chinas y Gen III: tablero de 121 huecos, pasos y saltos encadenados, validación de jugadas, victoria al llenar la meta, el bot juega legal y termina partidas, sala con bot y cambio de juego, y la pareja rey/reina de Gen III. Del modo atento: está activo por defecto y solo lo cambia el anfitrión, se puede ignorar el jaque y comerse al rey gana, el "mate" no termina la partida, las reglas clásicas siguen igual, el bot se come un rey desprotegido y mueve aunque no tenga jugadas legales. Del bot: siempre juega legal (partidas bot contra bot), todos los niveles ven el mate en 1,
 Normal/Difícil se comen una dama regalada, Fácil come lo más valioso, corona, respeta su tiempo,
 la sala con bot (opciones, color, revancha automática) y una partida por WebSocket donde el bot contesta solo.
 Del resto: piezas por generación, generación por jugador, tablero (solo anfitrión, aleatorio),
@@ -190,6 +223,12 @@ que no se filtren tokens, una partida completa por WebSocket con reconexión, y 
 966 Pokémon y que las hojas de cada pieza cuadren con sus metadatos.
 
 ## Cambios
+
+**v5 — damas chinas y Generación III**
+- Nuevo juego: damas chinas en tablero de estrella, online y contra el bot (3 dificultades).
+- Generación III para el ajedrez con rey y reina en pareja (Groudon/Kyogre o Latios/Latias).
+- Selector de juego en el inicio y en el lobby (lo cambia el anfitrión).
+- Si una hoja shiny de origen no cuadra con sus metadatos (Faint de Girafarig), se usa la normal.
 
 **v4 — modo atento**
 - Nueva regla por defecto: se puede dejar al rey en peligro, sin avisos; comerse al rey gana la partida.

@@ -11,6 +11,9 @@
  * rival se come al rey, gana. No hay jaque mate automático ni avisos de jaque.
  * Se usan las jugadas "pseudolegales" de chess.js (_moves({ legal: false })).
  *
+ * Modo de juego (room.game): 'chess' (ajedrez) o 'checkers' (damas chinas, reglas en
+ * shared/checkers.js). Lo elige el anfitrión en el lobby.
+ *
  * Salas contra el bot: uno de los asientos lo ocupa el bot (isBot), que siempre
  * está "listo" y "conectado". El jugador elige dificultad, su color y la
  * generación del bot. Quién mueve al bot lo decide server.js (botToMove + bot.js).
@@ -19,6 +22,8 @@ const crypto = require('crypto');
 const { Chess } = require('chess.js');
 const Gens = require('../shared/generations');
 const Boards = require('../shared/boards');
+const Checkers = require('../shared/checkers');
+const GAMES = ['chess', 'checkers'];
 
 /** Error "esperado" cuyo mensaje se puede mostrar al jugador. */
 class RoomError extends Error {}
@@ -68,6 +73,8 @@ class Room {
     this.result = null; // { winner: 'w'|'b'|null, reason }
     this.rematch = { w: false, b: false };
     this.bot = null;                   // en salas contra el bot: { level, colorPref }
+    this.game = 'chess';               // 'chess' | 'checkers'
+    this.ck = null;                    // estado de las damas chinas durante la partida
     this.attentive = true;             // modo atento: se puede dejar al rey en peligro
     this.sanHistory = [];              // historial propio (chess.js no anota jugadas pseudolegales)
     this.updatedAt = Date.now();
@@ -100,7 +107,7 @@ class Room {
   /** Token del bot si le toca mover ahora; si no, null. */
   botToMove() {
     const c = this.botColor();
-    return c && this.status === 'playing' && this.chess.turn() === c ? this.seats[c].token : null;
+    return c && this.status === 'playing' && this.turn() === c ? this.seats[c].token : null;
   }
 
   /**
@@ -187,6 +194,21 @@ class Room {
     this.touch();
   }
 
+  /** El anfitrión elige a qué se juega: ajedrez o damas chinas. */
+  setGame(token, game) {
+    this.colorOf(token);
+    if (token !== this.hostToken) throw new RoomError('Solo el anfitrión elige el juego');
+    if (this.status !== 'lobby') throw new RoomError('La partida ya empezó');
+    if (!GAMES.includes(game)) throw new RoomError('Juego no disponible');
+    this.game = game;
+    this.touch();
+  }
+
+  /** Turno actual en cualquiera de los dos juegos. */
+  turn() {
+    return this.game === 'checkers' && this.ck ? this.ck.turn : this.chess.turn();
+  }
+
   /** El anfitrión elige las reglas: modo atento (true) o clásico (false). */
   setAttentive(token, on) {
     this.colorOf(token);
@@ -230,6 +252,7 @@ class Room {
       [this.seats.w, this.seats.b] = [this.seats.b, this.seats.w];
     }
     this.chess = new Chess();
+    this.ck = this.game === 'checkers' ? Checkers.create() : null;
     this.sanHistory = [];
     this.lastMove = null;
     this.result = null;
@@ -246,7 +269,8 @@ class Room {
   move(token, { from, to, promotion } = {}) {
     const color = this.colorOf(token);
     if (this.status !== 'playing') throw new RoomError('La partida no está en curso');
-    if (this.chess.turn() !== color) throw new RoomError('No es tu turno');
+    if (this.turn() !== color) throw new RoomError('No es tu turno');
+    if (this.game === 'checkers') return this.checkersMove(color, from, to);
     const mv = this.attentive ? this.pseudoMove(from, to, promotion) : this.legalMove(from, to, promotion);
     if (!mv) throw new RoomError('Jugada ilegal');
     this.sanHistory.push(mv.san);
@@ -255,6 +279,21 @@ class Room {
     else this.checkGameOver();
     this.touch();
     return mv;
+  }
+
+  /** Damas chinas: valida y aplica; gana quien llena la meta, tablas al límite de jugadas. */
+  checkersMove(color, from, to) {
+    let res;
+    try { res = Checkers.applyMove(this.ck, color, from, to); } catch (e) { throw new RoomError(e.message); }
+    const seat = this.seats[color];
+    const mon = Gens.GENERATIONS[seat.gen].checkers[res.id];
+    const text = `${mon.name} ${res.jumps ? (res.jumps > 1 ? `salta ×${res.jumps}` : 'salta') : 'avanza'}`;
+    this.sanHistory.push(text);
+    this.lastMove = { from, to, path: res.path, id: res.id, color, jumps: res.jumps };
+    if (Checkers.hasWon(this.ck, color)) this.finish(color, 'goal');
+    else if (this.ck.moves >= Checkers.MAX_MOVES) this.finish(null, 'limit');
+    this.touch();
+    return this.lastMove;
   }
 
   /** Reglas clásicas: la API pública de chess.js. */
@@ -333,6 +372,7 @@ class Room {
       this.lastMove = null;
       this.rematch = { w: false, b: false };
       this.chess = new Chess();
+      this.ck = null;
       this.sanHistory = [];
     }
     this.touch();
@@ -364,9 +404,11 @@ class Room {
       players: { w: seat('w'), b: seat('b') },
       fen: this.chess.fen(),
       history: this.sanHistory,
-      turn: this.chess.turn(),
+      game: this.game,
+      ck: this.ck ? { cells: this.ck.cells, moves: this.ck.moves, inGoal: { w: Checkers.inGoal(this.ck, 'w'), b: Checkers.inGoal(this.ck, 'b') } } : null,
+      turn: this.turn(),
       // En modo atento no se avisa del jaque (hay que estar atento)
-      inCheck: !this.attentive && this.status === 'playing' && this.chess.inCheck(),
+      inCheck: this.game === 'chess' && !this.attentive && this.status === 'playing' && this.chess.inCheck(),
       attentive: this.attentive,
       lastMove: this.lastMove,
       result: this.result,
@@ -383,18 +425,20 @@ class RoomManager {
   }
 
   /** Crea una sala; el creador es el anfitrión y juega con blancas. */
-  create(gen, name) {
+  create(gen, name, game = 'chess') {
     if (!Gens.GENERATIONS[Number(gen)]) throw new RoomError('Generación no disponible');
+    if (!GAMES.includes(game)) throw new RoomError('Juego no disponible');
     let code;
     do code = randomCode(); while (this.rooms.has(code));
     const room = new Room(code);
+    room.game = game;
     this.rooms.set(code, room);
     return { room, ...room.addPlayer(name, gen) };
   }
 
   /** Partida contra el bot: el jugador es anfitrión (blancas) y el bot ocupa las negras. */
-  createBot(gen, name, level = 'normal') {
-    const res = this.create(gen, name);
+  createBot(gen, name, level = 'normal', game = 'chess') {
+    const res = this.create(gen, name, game);
     res.room.addBot(level);
     return res;
   }
@@ -418,4 +462,4 @@ class RoomManager {
   }
 }
 
-module.exports = { Room, RoomManager, RoomError, BOT_LEVELS };
+module.exports = { Room, RoomManager, RoomError, BOT_LEVELS, GAMES };

@@ -148,7 +148,12 @@ export class MonSprite {
 
     const box = visibleBox(this.id);
     const m = META[this.id].a[this.anim];
-    const img = image(sheetUrl(this.id, this.shiny, this.anim));
+    let img = image(sheetUrl(this.id, this.shiny, this.anim));
+    // Algunas hojas shiny de origen no cuadran con sus metadatos (p. ej. Faint de
+    // Girafarig): en ese caso se usa la hoja normal de esa animación.
+    if (this.shiny && img.complete && img.naturalWidth && (img.naturalWidth !== m.w * m.n || img.naturalHeight !== m.h * m.r)) {
+      img = image(sheetUrl(this.id, false, this.anim));
+    }
     if (!box || !img.complete || !img.naturalWidth) return; // se redibuja al cargar
     this.dirty = false;
 

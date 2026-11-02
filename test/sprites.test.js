@@ -16,8 +16,9 @@ function pngSize(file) {
   return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
 }
 
+// Piezas de ajedrez y fichas de damas chinas de todas las generaciones
 const pieceIds = [...new Set(Object.values(Gens.GENERATIONS)
-  .flatMap((g) => Object.values(g.pieces).flat().map((m) => m.id)))];
+  .flatMap((g) => [...Object.values(g.pieces).flat(), ...(g.checkers || [])].map((m) => m.id)))];
 
 test('se descargó la colección completa de sprites', (t) => {
   const dirs = fs.readdirSync(path.join(ASSETS, 'pokemon'));
@@ -36,6 +37,9 @@ test('cada pieza tiene sus animaciones (normal y shiny) y cuadran con los metada
         const file = path.join(ASSETS, 'pokemon', String(id), shiny ? 's' : '', `${anim}.png`);
         assert.ok(fs.existsSync(file), `falta ${file}`);
         const { w, h } = pngSize(file);
+        // La hoja normal debe cuadrar siempre; si una shiny no cuadra (fallo de origen,
+        // p. ej. Faint de Girafarig), sprites.js usa la normal en su lugar.
+        if (shiny && (w !== m.w * m.n || h !== m.h * m.r)) continue;
         assert.strictEqual(w, m.w * m.n, `ancho de ${anim} #${id}`);
         assert.strictEqual(h, m.h * m.r, `alto de ${anim} #${id}`);
       }

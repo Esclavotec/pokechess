@@ -3,8 +3,9 @@
  * las partidas en tiempo real. Toda la lógica de juego está en rooms.js.
  *
  * Protocolo (JSON). Cliente -> servidor:
- *   { type: 'create', gen, name }        crear sala (eres blancas y anfitrión)
- *   { type: 'createBot', gen, name, level } partida contra el bot ('easy'|'normal'|'hard')
+ *   { type: 'create', gen, name, game }  crear sala (eres blancas y anfitrión); game: 'chess'|'checkers'
+ *   { type: 'createBot', gen, name, level, game } partida contra el bot ('easy'|'normal'|'hard')
+ *   { type: 'game', game }               (anfitrión) cambiar entre ajedrez y damas chinas
  *   { type: 'join', code, name, gen }    unirte a una sala con tu generación
  *   { type: 'resume', code, token }      reconectar tras recargar la página
  *   { type: 'gen', gen }                 cambiar TU generación
@@ -27,6 +28,7 @@ const express = require('express');
 const { WebSocketServer } = require('ws');
 const { RoomManager, RoomError } = require('./rooms');
 const Bot = require('./bot');
+const CheckersBot = require('./checkersBot');
 
 /**
  * @param {object} [opts]
@@ -68,14 +70,18 @@ function createServer({ botDelayMs = 900 } = {}) {
     broadcast(room); // el cliente muestra "pensando…"
     const plies = room.sanHistory.length;
     // Tras una captura la animación de ataque dura más: el bot espera a que termine
-    const extra = botDelayMs && room.lastMove && room.lastMove.captured ? 1300 : 0;
+    // (en damas chinas, según cuántos saltos tiene que recorrer la ficha)
+    const lm = room.lastMove;
+    const extra = !botDelayMs || !lm ? 0 : lm.captured ? 1300 : lm.path ? 250 * Math.max(0, lm.path.length - 2) : 0;
     setTimeout(() => {
       room.botThinking = false;
       const token = room.botToMove();
       // Puede que entretanto el jugador se haya rendido o la sala haya cambiado
       if (!token || room.sanHistory.length !== plies) return broadcast(room);
       try {
-        const mv = Bot.chooseMove(room.chess.fen(), room.bot.level, { attentive: room.attentive });
+        const mv = room.game === 'checkers'
+          ? CheckersBot.chooseMove(room.ck, room.bot.level)
+          : Bot.chooseMove(room.chess.fen(), room.bot.level, { attentive: room.attentive });
         if (mv) room.move(token, mv);
       } catch (err) {
         console.error('Error del bot:', err);
@@ -101,11 +107,11 @@ function createServer({ botDelayMs = 900 } = {}) {
       try { msg = JSON.parse(raw); } catch { return; }
       try {
         if (msg.type === 'create') {
-          const { room, token, color } = manager.create(msg.gen, msg.name);
+          const { room, token, color } = manager.create(msg.gen, msg.name, msg.game || 'chess');
           return attach(ws, room, token, color);
         }
         if (msg.type === 'createBot') {
-          const { room, token, color } = manager.createBot(msg.gen, msg.name, msg.level || 'normal');
+          const { room, token, color } = manager.createBot(msg.gen, msg.name, msg.level || 'normal', msg.game || 'chess');
           return attach(ws, room, token, color);
         }
         if (msg.type === 'join') {
@@ -132,6 +138,7 @@ function createServer({ botDelayMs = 900 } = {}) {
           case 'botOptions': room.setBotOptions(token, msg); break;
           case 'color': room.setColorPref(token, msg.pref); break;
           case 'rules': room.setAttentive(token, msg.attentive); break;
+          case 'game': room.setGame(token, msg.game); break;
           default: return;
         }
         broadcast(room);

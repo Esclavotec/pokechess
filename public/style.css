@@ -225,6 +225,38 @@ canvas.thumb { display: block; image-rendering: pixelated; }
 .captured { display: flex; flex-wrap: wrap; margin-left: auto; }
 .captured canvas { width: 30px; height: 30px; margin-left: -6px; }
 
+/* ---------- Damas chinas: tablero de estrella ---------- */
+.board.star {
+  display: block; position: relative; aspect-ratio: 13 / 14.86; overflow: visible;
+  background: var(--t-light); background-image: var(--t-light-img, none); border-radius: 10px;
+}
+.hole {
+  position: absolute; width: 5.6%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
+  background: var(--t-dark); background-image: var(--t-dark-img, none);
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.35); cursor: pointer;
+}
+.hole.home-w { box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(255, 255, 255, 0.75); }
+.hole.home-b { box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(20, 20, 24, 0.75); }
+.hole.last { outline: 3px solid rgba(255, 214, 0, 0.8); }
+.hole.sel { outline: 3px solid #ffd600; background: #ffe35a; }
+.hole.dot::after {
+  content: ''; position: absolute; inset: 28%; border-radius: 50%; background: rgba(20, 20, 20, 0.45);
+}
+.piece.ck { width: 7.69%; height: auto; aspect-ratio: 1; transform: translate(-50%, -50%); }
+.piece.ck .ball-badge { width: 32%; height: 32%; bottom: -2%; }
+.piece.ck.hopping canvas { animation: hop 0.36s ease-in-out infinite; }
+@keyframes hop { 50% { transform: translateY(-18%); } }
+@media (prefers-reduced-motion: reduce) { .piece.ck.hopping canvas { animation: none; } }
+.ck-lineup { grid-template-columns: repeat(5, 1fr); }
+.opt-mons { display: flex; }
+.opt-mons canvas { width: 56px; height: 56px; }
+.game-pick { margin-bottom: 4px; }
+.goal-tag { margin-left: auto; }
+.history li.ck-h { list-style: none; margin-left: -20px; padding: 2px 0; }
+.history li.ck-h.w::before { content: '○ '; }
+.history li.ck-h.b::before { content: '● '; }
+.gen-pick { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+
 /* ---------- Tableros temáticos (dibujos propios con CSS) ---------- */
 /* Ruta 1 / Pueblo Paleta: césped y hierba alta, marco de valla de madera */
 .theme-ruta1 {

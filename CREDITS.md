@@ -132,10 +132,11 @@ Artistas de los sprites, tal como figuran en los créditos de PokéSurvivor:
 | ◥θ┴θ◤ | DC:<@215638650434617345> | 157, 445, 501, 504, 505, 566, 577, 595, 627, 650, 651, 658, 661, 676, 684, 707, 724, 726, 728, 729, 730, 761, 763, 790, 823, 872, 907, 991 |
 
 
-## Insignias y tableros
+## Insignias, iconos y tableros
 
-La Honor Ball, la Ocaso Ball (`public/img/`) y los tableros temáticos son dibujos
-propios hechos con SVG y CSS para este proyecto.
+La Honor Ball, la Ocaso Ball, la Poké Ball del logo y el robot (`public/img/`), los
+tableros temáticos y el tablero de estrella de las damas chinas son dibujos propios
+hechos con SVG y CSS para este proyecto.
 
 ## Marca
 
