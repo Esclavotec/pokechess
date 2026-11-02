@@ -21,7 +21,7 @@ export function createPoketch({ send, getLog, escapeHtml, getStage, tokenSprite 
   const root = document.createElement('div');
   root.className = 'poketch folded hidden';
   root.innerHTML = `
-    <button class="pk-fold" aria-label="Abrir el Pokéreloj"><span class="pk-mini">Pokéreloj</span><span class="pk-badge hidden">0</span></button>
+    <button class="pk-fold" aria-label="Abrir el Pokéreloj (chat)"><span class="pk-icon"></span><span class="pk-tip">Pokéreloj · chat</span><span class="pk-badge hidden">0</span></button>
     <div class="pk-body">
       <div class="pk-case">
         <div class="pk-screen">
@@ -53,6 +53,12 @@ export function createPoketch({ send, getLog, escapeHtml, getStage, tokenSprite 
     setTimeout(() => root.classList.remove('flash'), 180);
   }
   function setFolded(f) {
+    if (f && !root.classList.contains('folded')) {
+      // Se encoge hacia el icono antes de plegarse
+      root.classList.add('closing');
+      setTimeout(() => { root.classList.remove('closing'); root.classList.add('folded'); }, 180);
+      return;
+    }
     root.classList.toggle('folded', f);
     if (!f) { unread = 0; updateBadge(); if (screen === 'chat') $('.pk-form input').focus({ preventScroll: true }); }
   }
@@ -136,6 +142,13 @@ export function createPoketch({ send, getLog, escapeHtml, getStage, tokenSprite 
       if (root.classList.contains('folded') || screen !== 'chat') { unread++; updateBadge(); }
       root.classList.add('beep');
       setTimeout(() => root.classList.remove('beep'), 400);
+      // Plegado: el icono vibra un instante al llegar un mensaje
+      if (root.classList.contains('folded')) {
+        root.classList.remove('buzz');
+        void root.offsetWidth;
+        root.classList.add('buzz');
+        setTimeout(() => root.classList.remove('buzz'), 700);
+      }
     },
     typing(name) {
       typers.set(name, true);

@@ -813,3 +813,34 @@ canvas.wild { position: absolute; width: 11%; aspect-ratio: 1; height: auto; z-i
 @media (max-width: 640px) { canvas.wild { width: 14%; } }
 .scene canvas.wild.wild { width: 11%; top: auto; }
 @media (max-width: 640px) { .scene canvas.wild.wild { width: 14%; } }
+
+/* Pokéreloj plegado: icono redondo pixel art (img/props/poketch.svg) */
+.pk-fold {
+  width: 60px; height: 60px; padding: 0; border: 0; border-radius: 50%; background: transparent; box-shadow: none;
+  display: grid; place-items: center; cursor: pointer; position: relative;
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.35));
+  transition: transform 0.15s ease;
+}
+.pk-fold::before { content: none; }
+.pk-fold:hover { transform: translateY(-2px) scale(1.05); }
+.pk-fold:active { transform: scale(0.95); }
+.pk-icon { width: 60px; height: 60px; background: url(img/props/poketch.svg) center / contain no-repeat; image-rendering: pixelated; }
+.poketch.blink .pk-fold { animation: none; }
+.pk-badge { top: -4px; right: -4px; font-family: 'Pixelify', 'Press Start 2P', monospace; font-size: 0.75rem; padding: 1px 6px; }
+.pk-tip {
+  position: absolute; right: 68px; top: 50%; transform: translateY(-50%); white-space: nowrap; pointer-events: none;
+  font-family: 'Pixelify', sans-serif; font-size: 0.8rem; color: #f4f8ff; background: #0b1838; border: 2px solid #9fd4ff;
+  border-radius: 8px; padding: 3px 8px; opacity: 0; transition: opacity 0.15s ease;
+}
+.pk-fold:hover .pk-tip, .pk-fold:focus-visible .pk-tip { opacity: 1; }
+.poketch.buzz .pk-icon { animation: pk-buzz 0.6s ease-in-out; }
+@keyframes pk-buzz { 15% { transform: translateY(-5px) rotate(-8deg); } 35% { transform: translateY(0) rotate(6deg); } 55% { transform: translateY(-3px) rotate(-4deg); } 75% { transform: none; } }
+/* Abrir y cerrar desde el icono */
+.poketch .pk-body { transform-origin: bottom right; }
+.poketch:not(.folded) .pk-body { animation: pk-open 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+.poketch.closing .pk-body { animation: pk-close 0.18s ease-in forwards; }
+@keyframes pk-open { from { transform: scale(0.15); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pk-close { to { transform: scale(0.15); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .poketch.buzz .pk-icon, .poketch .pk-body { animation: none !important; } }
+@media (max-width: 640px) { .pk-fold, .pk-icon { width: 52px; height: 52px; } .pk-tip { display: none; } }
+@media (max-width: 640px) { main { padding-bottom: 84px; } }

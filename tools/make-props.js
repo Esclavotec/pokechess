@@ -184,6 +184,18 @@ props.tileWater = () => {
   return c;
 };
 
+// Icono del Pokéreloj plegado: reloj redondo rojo con correa y pantalla LCD verde con un bocadillo de chat
+props.poketch = () => {
+  const c = canvas();
+  c.rect(5, 0, 10, 2, '#3a3f4a').rect(5, 13, 10, 15, '#3a3f4a');                // correa arriba y abajo
+  c.ellipse(8, 8, 7, 6.5, (x, y) => (x + y < 9 ? '#ff5a5f' : x + y > 18 ? '#a3171c' : '#d8242a')); // carcasa
+  c.rect(15, 6, 15, 9, '#a3171c');                                              // botón lateral
+  c.rect(4, 5, 11, 11, '#253d16').rect(5, 6, 10, 10, '#9bbc5a');                // pantalla
+  c.rect(6, 7, 9, 8, '#253d16').set(6, 9, '#253d16');                           // bocadillo de chat
+  c.set(7, 7, '#9bbc5a').set(8, 7, '#9bbc5a');
+  return c.outline('#1c1c20');
+};
+
 for (const [name, draw] of Object.entries(props)) {
   fs.writeFileSync(path.join(OUT, `${name}.svg`), draw().svg(`${name} · PokéChess (pixel art propio, estilo PokéSurvivor)`));
 }

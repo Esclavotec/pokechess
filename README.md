@@ -318,6 +318,11 @@ que no se filtren tokens, una partida completa por WebSocket con reconexión, y 
 
 ## Cambios
 
+**v8.2 — Pokéreloj plegado**
+- El botón rectangular se cambia por un icono redondo en pixel art (reloj rojo con pantalla verde y bocadillo de chat, `img/props/poketch.svg`).
+- Globito amarillo con los mensajes sin leer y una pequeña vibración al llegar uno; etiqueta "Pokéreloj · chat" al pasar el ratón.
+- El reloj grande se abre desde el icono y se encoge al cerrarse. En móvil queda espacio al final de la página para que no tape botones.
+
 **v8.1 — Pokémon salvajes fluidos**
 - Cada Pokémon salvaje del escenario tiene una sola animación (antes se le creaba otra en reposo que a ratos lo hacía mirar al frente).
 - Caminan mirando hacia donde van (fila derecha/izquierda de su sprite), se dan la vuelta al llegar al borde y a veces se paran mirando de lado; Pidgey vuela con vaivén.
