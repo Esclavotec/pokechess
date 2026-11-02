@@ -362,6 +362,7 @@ function animateMove(prev, flip) {
   const finish = () => {
     if (token !== animToken) return;
     if (victim) removePiece(victim);
+    mover.el.classList.remove('attacking');
     syncPieces(flip); // aplica coronaciones y corrige cualquier diferencia
   };
 
@@ -391,6 +392,7 @@ function animateMove(prev, flip) {
       // Captura: el atacante usa una de sus animaciones de ataque (al azar) y,
       // a mitad del golpe, la víctima recibe el daño, se debilita y desaparece.
       const attack = pickAttack(mover.sprite);
+      mover.el.classList.add('attacking'); // el atacante siempre por delante de su víctima
       const atk = mover.sprite.duration(attack) || 400;
       mover.sprite.play(attack, { dir: mover.dir, loop: false, onDone: () => mover.sprite.play('Idle', { dir: 0 }) });
       setTimeout(() => {

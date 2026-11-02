@@ -189,6 +189,7 @@ canvas.thumb { display: block; image-rendering: pixelated; }
 .pieces { position: absolute; inset: 10px; pointer-events: none; }
 .piece { position: absolute; width: 12.5%; height: 12.5%; z-index: 1; transition: opacity 0.4s ease; }
 .piece.moving { z-index: 3; }
+.piece.attacking { z-index: 2; }
 .piece canvas {
   position: absolute; left: -50%; top: -50%; width: 200%; height: 200%;
   image-rendering: pixelated;
