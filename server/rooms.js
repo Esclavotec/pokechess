@@ -6,6 +6,10 @@
  *   lobby   -> cada jugador elige su generación y variantes, el anfitrión el tablero, y marcan "listo"
  *   playing -> se juega; el servidor valida cada jugada con chess.js
  *   over    -> terminó (mate, tablas o rendición); ambos pueden pedir revancha
+ *
+ * Salas contra el bot: uno de los asientos lo ocupa el bot (isBot), que siempre
+ * está "listo" y "conectado". El jugador elige dificultad, su color y la
+ * generación del bot. Quién mueve al bot lo decide server.js (botToMove + bot.js).
  */
 const crypto = require('crypto');
 const { Chess } = require('chess.js');
@@ -21,6 +25,19 @@ function randomCode(len = 5) {
   let s = '';
   for (let i = 0; i < len; i++) s += CODE_CHARS[crypto.randomInt(CODE_CHARS.length)];
   return s;
+}
+
+const BOT_LEVELS = ['easy', 'normal', 'hard'];
+const COLOR_PREFS = ['w', 'b', 'random'];
+const genIds = () => Object.keys(Gens.GENERATIONS).map(Number);
+
+/** Generación y variantes al azar (para el bot). */
+function randomLineup(rand = Math.random) {
+  const ids = genIds();
+  const gen = ids[Math.floor(rand() * ids.length)];
+  const choices = {};
+  for (const t of Gens.choosablePieces(gen)) choices[t] = Math.floor(rand() * Gens.GENERATIONS[gen].pieces[t].length);
+  return { gen, choices };
 }
 
 function cleanName(name, fallback) {
@@ -40,7 +57,78 @@ class Room {
     this.lastMove = null;
     this.result = null; // { winner: 'w'|'b'|null, reason }
     this.rematch = { w: false, b: false };
+    this.bot = null;                   // en salas contra el bot: { level, colorPref }
     this.updatedAt = Date.now();
+  }
+
+  /** Sienta al bot en el asiento libre. */
+  addBot(level = 'normal', lineup = randomLineup()) {
+    if (!BOT_LEVELS.includes(level)) throw new RoomError('Dificultad no disponible');
+    const color = !this.seats.w ? 'w' : !this.seats.b ? 'b' : null;
+    if (!color) throw new RoomError('La sala está llena');
+    this.seats[color] = {
+      token: 'bot-' + crypto.randomBytes(8).toString('hex'),
+      name: 'Bot Rojo',
+      gen: lineup.gen,
+      choices: Gens.sanitizeChoices(lineup.gen, lineup.choices),
+      ready: true,
+      connected: true,
+      isBot: true,
+    };
+    this.bot = { level, colorPref: color === 'b' ? 'w' : 'b' };
+    this.touch();
+    return color;
+  }
+
+  /** Color del bot, o null si la sala no tiene bot. */
+  botColor() {
+    return ['w', 'b'].find((c) => this.seats[c] && this.seats[c].isBot) || null;
+  }
+
+  /** Token del bot si le toca mover ahora; si no, null. */
+  botToMove() {
+    const c = this.botColor();
+    return c && this.status === 'playing' && this.chess.turn() === c ? this.seats[c].token : null;
+  }
+
+  /**
+   * (Solo el jugador humano, en el lobby) cambia las opciones del bot:
+   * { level, gen, choices } o { random: true } para generación y piezas al azar.
+   */
+  setBotOptions(token, opts = {}) {
+    this.colorOf(token);
+    const bc = this.botColor();
+    if (!bc) throw new RoomError('Esta sala no tiene bot');
+    if (this.status !== 'lobby') throw new RoomError('La partida ya empezó');
+    const seat = this.seats[bc];
+    if (opts.level !== undefined) {
+      if (!BOT_LEVELS.includes(opts.level)) throw new RoomError('Dificultad no disponible');
+      this.bot.level = opts.level;
+    }
+    if (opts.random) {
+      const l = randomLineup();
+      seat.gen = l.gen;
+      seat.choices = l.choices;
+    } else {
+      if (opts.gen !== undefined) {
+        const gen = Number(opts.gen);
+        if (!Gens.GENERATIONS[gen]) throw new RoomError('Generación no disponible');
+        if (gen !== seat.gen) { seat.gen = gen; seat.choices = Gens.defaultChoices(gen); }
+      }
+      if (opts.choices) seat.choices = Gens.sanitizeChoices(seat.gen, opts.choices);
+    }
+    this.touch();
+  }
+
+  /** (Salas con bot) el jugador elige jugar con blancas, negras o al azar. */
+  setColorPref(token, pref) {
+    const me = this.colorOf(token);
+    if (!this.bot) throw new RoomError('Esta sala no tiene bot');
+    if (this.status !== 'lobby') throw new RoomError('La partida ya empezó');
+    if (!COLOR_PREFS.includes(pref)) throw new RoomError('Color no válido');
+    this.bot.colorPref = pref;
+    if (pref !== 'random' && pref !== me) [this.seats.w, this.seats.b] = [this.seats.b, this.seats.w];
+    this.touch();
   }
 
   /** Ocupa el primer asiento libre. Devuelve { token, color }. */
@@ -116,6 +204,10 @@ class Room {
   }
 
   start() {
+    // Contra el bot con color "aleatorio": se sortea al empezar
+    if (this.bot && this.bot.colorPref === 'random' && Math.random() < 0.5) {
+      [this.seats.w, this.seats.b] = [this.seats.b, this.seats.w];
+    }
     this.chess = new Chess();
     this.lastMove = null;
     this.result = null;
@@ -178,9 +270,12 @@ class Room {
     const color = this.colorOf(token);
     if (this.status !== 'over') throw new RoomError('La partida no ha terminado');
     this.rematch[color] = true;
+    const bc = this.botColor();
+    if (bc) this.rematch[bc] = true; // el bot siempre acepta la revancha
     if (this.rematch.w && this.rematch.b) {
-      [this.seats.w, this.seats.b] = [this.seats.b, this.seats.w];
-      for (const c of ['w', 'b']) this.seats[c].ready = false;
+      // Contra el bot se respeta el color elegido (o se vuelve a sortear al empezar)
+      if (!bc) [this.seats.w, this.seats.b] = [this.seats.b, this.seats.w];
+      for (const c of ['w', 'b']) this.seats[c].ready = !!this.seats[c].isBot;
       this.status = 'lobby';
       this.result = null;
       this.lastMove = null;
@@ -195,7 +290,7 @@ class Room {
   }
 
   isEmpty() {
-    return !['w', 'b'].some((c) => this.seats[c] && this.seats[c].connected);
+    return !['w', 'b'].some((c) => this.seats[c] && !this.seats[c].isBot && this.seats[c].connected);
   }
 
   /** Estado que se envía a un jugador (nunca incluye los tokens). */
@@ -204,7 +299,7 @@ class Room {
     try { you = this.colorOf(token); } catch { /* espectador / desconocido */ }
     const seat = (c) => {
       const s = this.seats[c];
-      return s ? { name: s.name, gen: s.gen, choices: s.choices, ready: s.ready, connected: s.connected, host: s.token === this.hostToken } : null;
+      return s ? { name: s.name, gen: s.gen, choices: s.choices, ready: s.ready, connected: s.connected, host: s.token === this.hostToken, bot: !!s.isBot } : null;
     };
     return {
       code: this.code,
@@ -221,6 +316,8 @@ class Room {
       lastMove: this.lastMove,
       result: this.result,
       rematch: this.rematch,
+      bot: this.bot ? { ...this.bot } : null,
+      botThinking: !!this.botThinking,
     };
   }
 }
@@ -238,6 +335,13 @@ class RoomManager {
     const room = new Room(code);
     this.rooms.set(code, room);
     return { room, ...room.addPlayer(name, gen) };
+  }
+
+  /** Partida contra el bot: el jugador es anfitrión (blancas) y el bot ocupa las negras. */
+  createBot(gen, name, level = 'normal') {
+    const res = this.create(gen, name);
+    res.room.addBot(level);
+    return res;
   }
 
   join(code, name, gen = 1) {
@@ -259,4 +363,4 @@ class RoomManager {
   }
 }
 
-module.exports = { Room, RoomManager, RoomError };
+module.exports = { Room, RoomManager, RoomError, BOT_LEVELS };

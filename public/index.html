@@ -25,7 +25,8 @@
         </label>
         <div class="field-label">Tu generación</div>
         <div class="gen-pick" id="home-gens"></div>
-        <button id="btn-create" class="btn primary">Crear sala</button>
+        <button id="btn-create" class="btn primary">Crear sala online</button>
+        <button id="btn-bot" class="btn bot-btn">🤖 Jugar contra el bot</button>
         <div class="divider"><span>o únete</span></div>
         <div class="join-row">
           <input id="join-code" maxlength="5" placeholder="CÓDIGO" autocapitalize="characters">
@@ -37,13 +38,14 @@
     <!-- Pantalla 2: lobby (generación, variantes, listo) -->
     <section id="screen-lobby" class="screen hidden">
       <div class="card">
-        <div class="share">
+        <div class="share" id="share-row">
           <div>
             <div class="muted small">Código de sala</div>
             <div id="lobby-code" class="code"></div>
           </div>
           <button id="btn-copy" class="btn small">Copiar link</button>
         </div>
+        <div id="bot-settings"></div>
         <h2>Tablero</h2>
         <div class="board-pick" id="lobby-boards"></div>
         <p id="board-note" class="muted small"></p>

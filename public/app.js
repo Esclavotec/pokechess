@@ -26,6 +26,7 @@ const REASONS = {
   fifty: 'Tablas por la regla de 50 jugadas',
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const LEVEL_NAME = { easy: 'Fácil', normal: 'Normal', hard: 'Difícil' };
 
 let ws = null;
 let state = null;          // último estado recibido del servidor
@@ -117,6 +118,8 @@ function genCards(container, activeGen, enabled, onPick) {
 
 function renderLobby() {
   $('lobby-code').textContent = state.code;
+  $('share-row').classList.toggle('hidden', !!state.bot); // contra el bot no hay nada que compartir
+  renderBotSettings();
 
   // Tableros (los elige el anfitrión)
   const opts = [{ id: 'random', name: 'Aleatorio', region: 'Sorpresa' }, ...Boards.BOARDS];
@@ -126,15 +129,17 @@ function renderLobby() {
       <div class="t">${b.name}</div><div class="r">${b.region}</div>
     </button>`).join('');
   if (state.isHost) $('lobby-boards').querySelectorAll('.board-card').forEach((b) => (b.onclick = () => send({ type: 'board', board: b.dataset.board })));
-  $('board-note').textContent = state.isHost
-    ? 'Como anfitrión eliges el tablero. Cada jugador elige su generación y sus piezas.'
-    : 'El anfitrión elige el tablero. Tú eliges tu generación y tus piezas.';
+  $('board-note').textContent = state.bot
+    ? 'Elige el tablero, tus piezas y las del bot.'
+    : state.isHost
+      ? 'Como anfitrión eliges el tablero. Cada jugador elige su generación y sus piezas.'
+      : 'El anfitrión elige el tablero. Tú eliges tu generación y tus piezas.';
 
   const me = state.you;
   const rival = me === 'w' ? 'b' : 'w';
   setHtml($('my-panel'), playerPanel(me, true));
   setHtml($('rival-panel'), state.players[rival]
-    ? playerPanel(rival, false)
+    ? playerPanel(rival, false, !!state.bot)
     : `<div class="panel-head"><div class="who">Esperando rival…</div></div>
        <p class="muted">Comparte el código <b>${state.code}</b> o el link de la sala.</p>`);
 
@@ -147,13 +152,47 @@ function renderLobby() {
   }));
   const readyBtn = panel.querySelector('.ready-btn');
   if (readyBtn) readyBtn.onclick = () => send({ type: 'ready', ready: !state.players[me].ready });
+
+  // Contra el bot: tú eliges también su generación y sus piezas
+  if (state.bot) {
+    const bp = $('rival-panel');
+    bp.querySelectorAll('.gen-card').forEach((b) => (b.onclick = () => send({ type: 'botOptions', gen: Number(b.dataset.gen) })));
+    bp.querySelectorAll('.opt').forEach((b) => (b.onclick = () => {
+      const choices = { ...state.players[rival].choices, [b.dataset.type]: Number(b.dataset.i) };
+      send({ type: 'botOptions', choices });
+    }));
+    const rnd = bp.querySelector('.random-btn');
+    if (rnd) rnd.onclick = () => send({ type: 'botOptions', random: true });
+  }
 }
 
-function playerPanel(color, mine) {
+/** Ajustes de la partida contra el bot: dificultad y tu color. */
+function renderBotSettings() {
+  const box = $('bot-settings');
+  if (!state.bot) { box.innerHTML = ''; return; }
+  const seg = (name, items, active) => `<div class="segmented" data-name="${name}">${items.map(([v, label]) =>
+    `<button class="seg ${v === active ? 'active' : ''}" data-v="${v}">${label}</button>`).join('')}</div>`;
+  const help = {
+    easy: 'Mueve casi al azar, pero si puede comer una pieza la come.',
+    normal: 'Piensa 2 jugadas por adelantado.',
+    hard: 'Piensa hasta 4 jugadas por adelantado.',
+  };
+  box.innerHTML = `
+    <h2>Contra el bot</h2>
+    <div class="label-sm">Dificultad</div>
+    ${seg('level', [['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil']], state.bot.level)}
+    <p class="muted small">${help[state.bot.level]}</p>
+    <div class="label-sm">Tu color</div>
+    ${seg('color', [['w', 'Blancas · Honor Ball'], ['b', 'Negras · Ocaso Ball'], ['random', 'Aleatorio']], state.bot.colorPref)}`;
+  box.querySelectorAll('[data-name="level"] .seg').forEach((b) => (b.onclick = () => send({ type: 'botOptions', level: b.dataset.v })));
+  box.querySelectorAll('[data-name="color"] .seg').forEach((b) => (b.onclick = () => send({ type: 'color', pref: b.dataset.v })));
+}
+
+function playerPanel(color, mine, botEditable = false) {
   const p = state.players[color];
   const g = Gens.GENERATIONS[p.gen];
   const shiny = color === 'b';
-  const editable = mine && !p.ready;
+  const editable = (mine && !p.ready) || (botEditable && !state.players[state.you].ready);
   const gens = Object.entries(Gens.GENERATIONS).map(([n, gg]) => `
     <button class="gen-card compact ${Number(n) === p.gen ? 'active' : ''}" data-gen="${n}" ${editable ? '' : 'disabled'}>
       <div class="t">${gg.name}</div><div class="r">${gg.region}</div>
@@ -176,14 +215,16 @@ function playerPanel(color, mine) {
       <div class="who">${escapeHtml(p.name)}${mine ? ' (tú)' : ''}</div>
       <span class="tag"><span class="ball-icon ${BALL[color].cls}"></span>${COLOR_NAME[color]}${shiny ? ' · shiny' : ''}</span>
     </div>
-    <div class="muted small">${p.host ? 'Anfitrión · ' : ''}${p.connected ? 'Conectado' : 'Desconectado'}</div>
+    <div class="muted small">${p.bot ? `🤖 Bot · ${LEVEL_NAME[state.bot.level]}` : `${p.host ? 'Anfitrión · ' : ''}${p.connected ? 'Conectado' : 'Desconectado'}`}</div>
     <div class="label-sm">Generación</div>
     <div class="gen-pick">${gens}</div>
     ${variants || '<p class="muted small">En esta generación no hay piezas a elegir.</p>'}
     <div class="lineup">${lineup}</div>
     ${mine
-      ? `<button class="btn primary ready-btn">${p.ready ? 'Cancelar listo' : '¡Listo!'}</button>`
-      : `<span class="tag ${p.ready ? 'ok' : 'off'}">${p.ready ? 'Listo' : 'Eligiendo…'}</span>`}`;
+      ? `<button class="btn primary ready-btn">${p.ready ? 'Cancelar listo' : state.bot ? '¡A jugar!' : '¡Listo!'}</button>`
+      : p.bot
+        ? `<button class="btn small random-btn" ${editable ? '' : 'disabled'}>🎲 Generación y piezas al azar</button>`
+        : `<span class="tag ${p.ready ? 'ok' : 'off'}">${p.ready ? 'Listo' : 'Eligiendo…'}</span>`}`;
 }
 
 // ---------- Partida: capa de casillas ----------
@@ -251,7 +292,10 @@ function renderGame(prev) {
     const who = r.winner ? `Ganan ${COLOR_NAME[r.winner]} (${state.players[r.winner].name})` : 'Empate';
     st.textContent = `${REASONS[r.reason]} ${who}`;
   } else {
-    st.textContent = myTurn ? (state.inCheck ? '¡Jaque! Te toca' : 'Te toca mover') : `Turno de ${state.players[state.turn].name}`;
+    const other = state.players[state.turn];
+    st.textContent = myTurn
+      ? (state.inCheck ? '¡Jaque! Te toca' : 'Te toca mover')
+      : other.bot ? `🤖 ${other.name} está pensando…` : `Turno de ${other.name}`;
   }
 
   // Historial en parejas (blancas / negras)
@@ -461,6 +505,7 @@ function playerBar(color, caps) {
   return `<span class="ball-icon ${BALL[color].cls}" title="${BALL[color].name}"></span>
     <span class="nm">${escapeHtml(p.name)}${color === state.you ? ' (tú)' : ''}</span>
     <span class="tag">${Gens.GENERATIONS[p.gen].name}</span>
+    ${p.bot ? `<span class="tag">🤖 ${LEVEL_NAME[state.bot.level]}</span>` : ''}
     ${p.connected ? '' : '<span class="tag off">desconectado</span>'}
     ${turn ? '<span class="turn">● su turno</span>' : ''}
     <span class="captured">${capImgs}</span>`;
@@ -515,6 +560,7 @@ async function init() {
     return n;
   };
   $('btn-create').onclick = () => send({ type: 'create', gen: homeGen, name: name() });
+  $('btn-bot').onclick = () => send({ type: 'createBot', gen: homeGen, name: name(), level: 'normal' });
   $('btn-join').onclick = () => {
     const code = $('join-code').value.trim().toUpperCase();
     if (code.length !== 5) return toast('El código tiene 5 caracteres');

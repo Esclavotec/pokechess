@@ -120,6 +120,16 @@ input:focus { outline: none; border-color: var(--red); }
 .mini.theme-random { background: linear-gradient(90deg, #6fb44a, #8b7a60, #8f897f, #a8693a, #3f97d1, #5a52b8); }
 .mini.theme-random i { background: transparent !important; }
 
+/* Botón y ajustes del modo contra el bot */
+.bot-btn { width: 100%; margin-top: 8px; }
+.segmented { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.seg {
+  font: inherit; font-weight: 800; font-size: 0.85rem; cursor: pointer; padding: 7px 12px; border-radius: 99px;
+  border: 2px solid var(--line); background: var(--bg); color: var(--ink);
+}
+.seg.active { border-color: var(--red); background: var(--red); color: #fff; }
+.random-btn { width: 100%; }
+
 .share { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .code { font-size: 1.3rem; letter-spacing: 4px; color: var(--red); margin-top: 4px; }
 

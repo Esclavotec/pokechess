@@ -7,6 +7,7 @@ Ajedrez para 2 jugadores en tiempo real donde las piezas son Pokémon **animados
 - Cada jugador elige **su propia generación** y sus piezas opcionales (se puede jugar Gen I contra Gen II).
 - El anfitrión elige el **tablero**: lugares icónicos del mundo Pokémon (o aleatorio).
 - Las blancas llevan una **Honor Ball** bajo los pies y las negras una **Ocaso Ball**, además del sprite **shiny**. Sin sombras.
+- **Modo contra el bot** con tres dificultades: Fácil, Normal y Difícil.
 
 ## Piezas
 
@@ -45,6 +46,19 @@ Los sprites están incluidos en el proyecto: no hace falta internet para verlos.
 5. Clic en una pieza para ver sus jugadas legales y clic en el destino. Al coronar eliges la pieza viendo los Pokémon.
 6. Al terminar (mate, tablas o rendición) pulsad **Revancha**: volvéis al lobby con los colores intercambiados.
 
+### Contra el bot
+
+1. En el inicio pulsa **🤖 Jugar contra el bot** (usa la generación que tengas elegida).
+2. En el lobby elige **dificultad**, **tu color** (blancas, negras o aleatorio), el **tablero** y también la **generación y piezas del bot** (o 🎲 al azar).
+3. Pulsa **¡A jugar!**. Cuando le toca, el bot muestra "pensando…" y mueve tras una breve pausa, con las mismas animaciones de caminar y atacar.
+4. La revancha la acepta solo y se mantiene el color que elegiste.
+
+| Dificultad | Cómo juega |
+|---|---|
+| Fácil | Casi al azar, pero si puede comer una pieza come la más valiosa (y nunca deja pasar un mate en 1) |
+| Normal | Mira 2 jugadas por adelantado, con algo de variedad entre jugadas parecidas |
+| Difícil | Mira hasta 4 jugadas por adelantado (profundización iterativa, máx. 2,5 s) |
+
 Si recargas la página vuelves a tu asiento (el token se guarda por pestaña en `sessionStorage`).
 
 ## Animaciones
@@ -63,6 +77,15 @@ Para que **todas las casillas y piezas tengan la misma dimensión**, se mide la 
 fotograma de reposo de cada Pokémon y se escala para ocupar el mismo espacio en su casilla.
 Con "reducir movimiento" activado en el sistema, las piezas no se animan.
 
+## Cómo piensa el bot (`server/bot.js`)
+
+- **Búsqueda minimax con poda alfa-beta** (negamax): prueba sus jugadas, las respuestas del rival, etc., y descarta ramas que ya sabe peores.
+- **Evaluación**: material (peón 100, caballo 320, alfil 330, torre 500, dama 900) + tablas de casillas que premian centralizar, desarrollar y enrocar.
+- **Orden de jugadas**: primero coronaciones y capturas (víctima valiosa con atacante barato), para podar antes.
+- **Profundización iterativa con límite de tiempo**: si se acaba el tiempo usa la última profundidad completa, así nunca se queda colgado.
+- **Rendimiento**: dentro de la búsqueda usa los métodos internos de chess.js (`_moves`, `_makeMove`, `_undoMove`), entre 10 y 20 veces más rápidos que la API pública. Por eso `package.json` fija **chess.js 1.0.0** exacto.
+- Corre en el servidor (que sigue siendo la autoridad). `server.js` lo llama cuando `room.botToMove()` indica que le toca, tras una pausa de 0,9 s.
+
 ## Jugar online
 
 - **Misma red Wi-Fi:** tu rival abre `http://TU-IP-LOCAL:3000`.
@@ -75,7 +98,8 @@ Con "reducir movimiento" activado en el sistema, las piezas no se animan.
 pokechess/
 ├─ server/
 │  ├─ server.js      Express (archivos + sprites) y WebSocket /ws
-│  └─ rooms.js       Salas, generación por jugador, tablero, turnos y reglas (chess.js)
+│  ├─ rooms.js       Salas, generación por jugador, tablero, turnos, reglas y asiento del bot
+│  └─ bot.js         Cerebro del bot (minimax alfa-beta, 3 dificultades)
 ├─ shared/
 │  ├─ generations.js Pokémon de cada pieza por generación (Node y navegador)
 │  └─ boards.js      Lista de tableros temáticos
@@ -108,6 +132,9 @@ material insuficiente y la regla de 50 jugadas.
 | Cliente → servidor | Para qué |
 |---|---|
 | `create {gen, name}` | crear sala con tu generación |
+| `createBot {gen, name, level}` | partida contra el bot (`easy` · `normal` · `hard`) |
+| `botOptions {level?, gen?, choices?, random?}` | (contra el bot) dificultad, generación y piezas del bot |
+| `color {pref}` | (contra el bot) tu color: `w` · `b` · `random` |
 | `join {code, name, gen}` | unirte con tu generación |
 | `resume {code, token}` | volver tras recargar |
 | `gen {gen}` | cambiar **tu** generación |
@@ -137,12 +164,21 @@ Ya están descargados los sprites de 966 Pokémon. Solo hay que añadir una entr
 npm test
 ```
 
-15 pruebas: piezas por generación, generación por jugador, tablero (solo anfitrión, aleatorio),
+22 pruebas. Del bot: siempre juega legal (partidas bot contra bot), todos los niveles ven el mate en 1,
+Normal/Difícil se comen una dama regalada, Fácil come lo más valioso, corona, respeta su tiempo,
+la sala con bot (opciones, color, revancha automática) y una partida por WebSocket donde el bot contesta solo.
+Del resto: piezas por generación, generación por jugador, tablero (solo anfitrión, aleatorio),
 salas, variantes, turnos, jugadas ilegales, mate del pastor, rendición y revancha, coronación,
 que no se filtren tokens, una partida completa por WebSocket con reconexión, y que estén los
 966 Pokémon y que las hojas de cada pieza cuadren con sus metadatos.
 
 ## Cambios
+
+**v3 — bot**
+- Botón "Jugar contra el bot" con dificultad Fácil / Normal / Difícil.
+- Eliges tu color y la generación y piezas del bot (o al azar).
+- Indicador "pensando…", revancha automática, sala se limpia si te vas.
+- chess.js fijado a 1.0.0 (el bot usa sus métodos internos).
 
 **v2**
 - Cada jugador elige su generación (antes la elegía el anfitrión para los dos).
