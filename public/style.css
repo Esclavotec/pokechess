@@ -152,7 +152,7 @@ input:focus { outline: none; border-color: var(--red); }
 canvas.thumb { display: block; image-rendering: pixelated; }
 
 /* Insignias de bando: Honor Ball (blancas) y Ocaso Ball (negras) */
-.ball-icon { display: inline-block; width: 18px; height: 18px; background: center / contain no-repeat; flex: none; }
+.ball-icon { display: inline-block; width: 18px; height: 18px; background: center / contain no-repeat; flex: none; image-rendering: pixelated; }
 .ball-icon.honor, .ball-badge.honor { background-image: url(img/honor-ball.svg); }
 .ball-icon.ocaso, .ball-badge.ocaso { background-image: url(img/ocaso-ball.svg); }
 
@@ -196,7 +196,7 @@ canvas.thumb { display: block; image-rendering: pixelated; }
 /* La insignia va debajo de los pies del Pokémon (sin sombras) */
 .ball-badge {
   position: absolute; left: 50%; bottom: 1%; width: 25%; height: 25%;
-  transform: translateX(-50%); background: center / contain no-repeat;
+  transform: translateX(-50%); background: center / contain no-repeat; image-rendering: pixelated;
 }
 .piece.fainting { opacity: 0; }
 
