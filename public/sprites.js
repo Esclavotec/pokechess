@@ -166,6 +166,11 @@ export class MonSprite {
       scale = Math.min((sq * 0.76) / box.w, (sq * 0.74) / box.h);
       footX = W / 2;
       footY = sq * 0.5 + sq * 0.8; // pies al 80 % de la casilla, justo sobre la insignia
+    } else if (this.layout === 'roomy') {
+      // Con margen alrededor: los fotogramas de caminar (más anchos) no se recortan
+      scale = Math.min((W * 0.56) / box.w, (H * 0.56) / box.h);
+      footX = W / 2;
+      footY = H * 0.8;
     } else {
       scale = Math.min((W * 0.9) / box.w, (H * 0.9) / box.h);
       footX = W / 2;

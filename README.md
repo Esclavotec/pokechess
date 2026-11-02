@@ -318,6 +318,11 @@ que no se filtren tokens, una partida completa por WebSocket con reconexión, y 
 
 ## Cambios
 
+**v8.1 — Pokémon salvajes fluidos**
+- Cada Pokémon salvaje del escenario tiene una sola animación (antes se le creaba otra en reposo que a ratos lo hacía mirar al frente).
+- Caminan mirando hacia donde van (fila derecha/izquierda de su sprite), se dan la vuelta al llegar al borde y a veces se paran mirando de lado; Pidgey vuela con vaivén.
+- Marco más grande para que no se recorten y carriles que no cruzan el cartel del atajo ni la tarjeta central.
+
 **v8 — Ruta de Medallas, Pokéreloj y Generación IV**
 - Nuevo juego: **Ruta de Medallas** (2-4 jugadores, bots, 44 casillas, Teselia, transportes, servicios, Monte Corona, Zona Safari, combates, Guardería y ventas).
 - **Pokéreloj**: chat, reacciones y registro en todas las salas.

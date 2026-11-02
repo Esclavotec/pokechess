@@ -19,7 +19,13 @@ const L = 12;                       // lado de la cuadrícula
 const CELL = 100 / L;               // tamaño de una casilla en %
 const CAVE_COLS = [2, 4, 7, 9];     // columnas de las 4 casillas de la cueva (fila del Monte Corona)
 const DAYTIME = ['manana', 'tarde', 'atardecer', 'noche'];
-const WILD = [16, 10, 399, 43];       // Pokémon salvajes que pasean por el escenario
+// Pokémon salvajes que pasean por el escenario. Cada uno va por su carril (en % del escenario)
+// sin cruzar el cartel del atajo ni la tarjeta central: top, de minX a maxX, velocidad (%/s).
+const WILD = [
+  { id: 16, top: 6, min: 2, max: 88, speed: 7, fly: true },   // Pidgey volando entre los árboles
+  { id: 399, top: 22, min: 4, max: 86, speed: 4 },            // Bidoof
+  { id: 43, top: 80, min: 30, max: 62, speed: 3 },            // Oddish entre el Safari y el estanque
+];
 // Nombres cortos para que quepan en la casilla
 const SHORT = { 'Salida · Pueblo Paleta': 'Salida', 'Ferry S.S. Aqua': 'Ferry', 'Metro Batalla': 'Metro', 'Central Eléctrica': 'Central', 'Torre Radio': 'Radio', 'Equipo Galaxia': 'Galaxia', 'Hierba alta': 'Hierba', 'Árbol de Bayas': 'Bayas', 'Centro Pokémon': 'Centro', 'Tienda Pokémon': 'Tienda', 'Zona Safari': 'Safari', 'Snorlax dormido': 'Snorlax' };
 const P = (name, cls = '') => `<img class="prop ${cls}" src="img/props/${name}.svg" alt="" draggable="false">`;
@@ -235,13 +241,13 @@ export function createRouteUI(ctx) {
         <div class="ground"></div>
         ${DECOR.map(([name, x, y, w]) => `<span class="decor" style="left:${x}%;top:${y}%;width:${w}%">${P(name)}</span>`).join('')}
         <div class="pond"></div>
-        <div class="safari-park"><span>Zona Safari</span>${P('fence')}${P('fence')}${P('fence')}<canvas class="wild park-mon" data-mon="115" data-shiny="0"></canvas></div>
+        <div class="safari-park"><span>Zona Safari</span>${P('fence')}${P('fence')}${P('fence')}<canvas class="park-mon" data-wild="115"></canvas></div>
         <div class="tunnel" style="top:${caveTop}%;height:10%">
           <span class="tunnel-sign">⛰ Atajo del Monte Corona → Ciudad Rocavelo</span>
           <span class="arrow a1">▶</span><span class="arrow a2">▶</span><span class="arrow a3">▶</span>
         </div>
         <div class="cloud c1"></div><div class="cloud c2"></div>
-        ${WILD.map((id, k) => `<canvas class="wild w${k}" data-mon="${id}" data-shiny="0"></canvas>`).join('')}
+        ${WILD.map((w, k) => `<canvas class="wild w${k}" data-wild="${w.id}" style="top:${w.top}%;left:${w.min}%"></canvas>`).join('')}
         <div class="night"></div>
         ${banners}
         <div id="route-stage" class="stage"></div>
@@ -251,16 +257,63 @@ export function createRouteUI(ctx) {
         </div>
       </div>${cells}${cave}`;
     // Pokémon salvajes paseando por el escenario (caminan de lado a lado)
-    b.querySelectorAll('canvas.wild').forEach((cv, k) => {
-      const sp = new MonSprite(cv, Number(cv.dataset.mon), false, 'thumb');
-      if (!cv.classList.contains('park-mon')) sp.play('Walk', { dir: k % 2 ? 6 : 2 });
-    });
+    startWild(b);
     // Al pasar por el Monte Corona se resalta todo el atajo
     const corona = b.querySelector(`.rcell[data-sq="${R.CORONA}"]`);
     corona.onmouseenter = () => b.classList.add('show-shortcut');
     corona.onmouseleave = () => b.classList.remove('show-shortcut');
     ctx.hydrate(b);
     b.querySelectorAll('.rcell:not(.cavecell)').forEach((el) => (el.onclick = () => cellInfo(Number(el.dataset.sq))));
+  }
+
+  /**
+   * Paseo de los Pokémon salvajes: una sola animación por Pokémon, que camina mirando
+   * hacia donde va (fila derecha o izquierda de su sprite), se da la vuelta en los bordes
+   * de su carril y a veces se para un momento mirando de lado.
+   */
+  let wildLoop = null;
+  function startWild(b) {
+    if (wildLoop) cancelAnimationFrame(wildLoop);
+    const park = b.querySelector('canvas.park-mon');
+    if (park) new MonSprite(park, Number(park.dataset.wild), false, 'roomy');
+    const walkers = [...b.querySelectorAll('canvas.wild')].map((cv, k) => {
+      const cfg = WILD[k];
+      const sprite = new MonSprite(cv, cfg.id, false, 'roomy');
+      const w = { cv, cfg, sprite, x: cfg.min + Math.random() * (cfg.max - cfg.min), dir: Math.random() < 0.5 ? 1 : -1, pauseUntil: 0, nextPause: 0, phase: Math.random() * 6 };
+      w.nextPause = performance.now() + 3000 + Math.random() * 5000;
+      sprite.play('Walk', { dir: w.dir > 0 ? 2 : 6 });
+      return w;
+    });
+    let last = performance.now();
+    const tick = (now) => {
+      const dt = Math.min((now - last) / 1000, 0.1);
+      last = now;
+      for (const w of walkers) {
+        if (!w.cv.isConnected) { cancelAnimationFrame(wildLoop); wildLoop = null; return; }
+        const side = w.dir > 0 ? 2 : 6; // 2 = mira a la derecha, 6 = a la izquierda
+        if (reduce.matches) { if (w.sprite.anim !== 'Idle') w.sprite.play('Idle', { dir: side }); continue; }
+        if (now < w.pauseUntil) continue;                         // en pausa (reposo de lado)
+        if (w.sprite.anim !== 'Walk') w.sprite.play('Walk', { dir: side });
+        if (!w.cfg.fly && now > w.nextPause) {                    // de vez en cuando se para
+          w.pauseUntil = now + 900 + Math.random() * 1400;
+          w.nextPause = w.pauseUntil + 3500 + Math.random() * 6000;
+          w.sprite.play('Idle', { dir: side });
+          continue;
+        }
+        w.x += w.dir * w.cfg.speed * dt;
+        if (w.x > w.cfg.max || w.x < w.cfg.min) {                // borde del carril: se da la vuelta
+          w.x = Math.max(w.cfg.min, Math.min(w.cfg.max, w.x));
+          w.dir = -w.dir;
+          w.sprite.play('Walk', { dir: w.dir > 0 ? 2 : 6 });
+        }
+        w.phase += dt * 4;
+        const bob = w.cfg.fly ? Math.sin(w.phase) * 6 : 0;        // Pidgey sube y baja al volar
+        w.cv.style.left = `${w.x}%`;
+        w.cv.style.transform = `translateY(${bob}px)`;
+      }
+      wildLoop = requestAnimationFrame(tick);
+    };
+    wildLoop = requestAnimationFrame(tick);
   }
 
   function drawBoard(st) {
