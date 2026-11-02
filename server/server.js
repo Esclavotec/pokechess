@@ -5,7 +5,7 @@
  * Protocolo (JSON). Cliente -> servidor:
  *   { type: 'create', gen, name, game }  crear sala (eres blancas y anfitrión); game: 'chess'|'checkers'
  *   { type: 'createBot', gen, name, level, game } partida contra el bot ('easy'|'normal'|'hard')
- *   { type: 'game', game }               (anfitrión) cambiar entre ajedrez y damas chinas
+ *   { type: 'game', game }               (anfitrión) 'chess' | 'draughts' (damas) | 'checkers' (damas chinas)
  *   { type: 'join', code, name, gen }    unirte a una sala con tu generación
  *   { type: 'resume', code, token }      reconectar tras recargar la página
  *   { type: 'gen', gen }                 cambiar TU generación
@@ -29,6 +29,7 @@ const { WebSocketServer } = require('ws');
 const { RoomManager, RoomError } = require('./rooms');
 const Bot = require('./bot');
 const CheckersBot = require('./checkersBot');
+const DraughtsBot = require('./draughtsBot');
 
 /**
  * @param {object} [opts]
@@ -72,7 +73,10 @@ function createServer({ botDelayMs = 900 } = {}) {
     // Tras una captura la animación de ataque dura más: el bot espera a que termine
     // (en damas chinas, según cuántos saltos tiene que recorrer la ficha)
     const lm = room.lastMove;
-    const extra = !botDelayMs || !lm ? 0 : lm.captured ? 1300 : lm.path ? 250 * Math.max(0, lm.path.length - 2) : 0;
+    // (en damas, ~1,1 s por cada ficha comida para que se vea cada ataque)
+    const extra = !botDelayMs || !lm ? 0
+      : Array.isArray(lm.captured) ? 1100 * lm.captured.length
+        : lm.captured ? 1300 : lm.path ? 250 * Math.max(0, lm.path.length - 2) : 0;
     setTimeout(() => {
       room.botThinking = false;
       const token = room.botToMove();
@@ -81,7 +85,9 @@ function createServer({ botDelayMs = 900 } = {}) {
       try {
         const mv = room.game === 'checkers'
           ? CheckersBot.chooseMove(room.ck, room.bot.level)
-          : Bot.chooseMove(room.chess.fen(), room.bot.level, { attentive: room.attentive });
+          : room.game === 'draughts'
+            ? DraughtsBot.chooseMove(room.dr, room.bot.level)
+            : Bot.chooseMove(room.chess.fen(), room.bot.level, { attentive: room.attentive });
         if (mv) room.move(token, mv);
       } catch (err) {
         console.error('Error del bot:', err);

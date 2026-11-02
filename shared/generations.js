@@ -10,6 +10,7 @@
  * `linked` une piezas que se eligen en pareja: { q: 'k' } significa que la reina
  * usa siempre la misma opción que el rey (p. ej. Groudon+Kyogre o Latios+Latias).
  * `checkers` son los 10 Pokémon de las fichas en las damas chinas.
+ * `draughts` son la ficha y la dama (su evolución) de las damas clásicas.
  *
  * Para añadir una generación nueva basta con añadir otra entrada aquí.
  *
@@ -36,6 +37,7 @@
         { id: 7, name: 'Squirtle' }, { id: 133, name: 'Eevee' }, { id: 39, name: 'Jigglypuff' },
         { id: 54, name: 'Psyduck' }, { id: 52, name: 'Meowth' }, { id: 35, name: 'Clefairy' }, { id: 94, name: 'Gengar' },
       ],
+      draughts: { man: { id: 129, name: 'Magikarp' }, king: { id: 130, name: 'Gyarados' } },
     },
     2: {
       name: 'Generación II',
@@ -53,6 +55,7 @@
         { id: 175, name: 'Togepi' }, { id: 183, name: 'Marill' }, { id: 172, name: 'Pichu' },
         { id: 179, name: 'Mareep' }, { id: 215, name: 'Sneasel' }, { id: 216, name: 'Teddiursa' }, { id: 197, name: 'Umbreon' },
       ],
+      draughts: { man: { id: 170, name: 'Chinchou' }, king: { id: 171, name: 'Lanturn' } },
     },
     3: {
       name: 'Generación III',
@@ -71,6 +74,7 @@
         { id: 280, name: 'Ralts' }, { id: 300, name: 'Skitty' }, { id: 303, name: 'Mawile' },
         { id: 304, name: 'Aron' }, { id: 311, name: 'Plusle' }, { id: 312, name: 'Minun' }, { id: 359, name: 'Absol' },
       ],
+      draughts: { man: { id: 371, name: 'Bagon' }, king: { id: 373, name: 'Salamence' } },
     },
   };
 

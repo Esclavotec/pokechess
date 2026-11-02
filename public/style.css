@@ -103,8 +103,11 @@ input:focus { outline: none; border-color: var(--red); }
 .gen-card:disabled { cursor: default; }
 .gen-card .t { font-weight: 800; }
 .gen-card .r { font-size: 0.8rem; color: var(--muted); }
+/* Los Pokémon de la tarjeta se encogen para caber siempre (máx. 44 px) */
+.gen-card { min-width: 0; overflow: hidden; }
+.gen-card .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gen-card .mons { display: flex; gap: 2px; margin-top: 4px; }
-.gen-card .mons canvas { width: 44px; height: 44px; }
+.gen-card .mons canvas { flex: 0 1 44px; min-width: 0; width: 44px; height: auto; aspect-ratio: 1; }
 
 /* Selector de tablero */
 .board-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin: 8px 0 12px; }
@@ -225,6 +228,20 @@ canvas.thumb { display: block; image-rendering: pixelated; }
 .captured { display: flex; flex-wrap: wrap; margin-left: auto; }
 .captured canvas { width: 30px; height: 30px; margin-left: -6px; }
 
+/* ---------- Damas clásicas ---------- */
+.dr-lineup { grid-template-columns: repeat(2, 1fr); }
+.dr-lineup canvas { max-width: 72px; }
+.sq.must::after {
+  content: ''; position: absolute; inset: 4%; border-radius: 50%; border: 3px dashed rgba(255, 214, 0, 0.9);
+}
+.piece.evolving canvas { animation: evolve 0.9s ease-out; }
+@keyframes evolve {
+  0% { filter: brightness(4) saturate(0); transform: scale(0.6); }
+  60% { filter: brightness(2.2) saturate(0.4); transform: scale(1.15); }
+  100% { filter: none; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .piece.evolving canvas { animation: none; } }
+
 /* ---------- Damas chinas: tablero de estrella ---------- */
 .board.star {
   display: block; position: relative; aspect-ratio: 13 / 14.86; overflow: visible;
@@ -255,7 +272,9 @@ canvas.thumb { display: block; image-rendering: pixelated; }
 .history li.ck-h { list-style: none; margin-left: -20px; padding: 2px 0; }
 .history li.ck-h.w::before { content: '○ '; }
 .history li.ck-h.b::before { content: '● '; }
-.gen-pick { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+.gen-pick { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.lineup > div, .captured, .opts .opt { min-width: 0; }
+.lineup canvas, .opt canvas { max-width: 100%; height: auto; aspect-ratio: 1; }
 
 /* ---------- Tableros temáticos (dibujos propios con CSS) ---------- */
 /* Ruta 1 / Pueblo Paleta: césped y hierba alta, marco de valla de madera */

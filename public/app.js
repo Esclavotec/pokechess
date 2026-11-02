@@ -14,6 +14,7 @@ import { loadMeta, MonSprite, dirFromDelta, hydrateThumbs } from './sprites.js';
 const Gens = window.PokeGenerations;
 const Boards = window.PokeBoards;
 const CK = window.PokeCheckers;
+const DR = window.PokeDraughts;
 const $ = (id) => document.getElementById(id);
 const START_COUNT = { p: 8, n: 2, b: 2, r: 2, q: 1 };
 const COLOR_NAME = { w: 'Blancas', b: 'Negras' };
@@ -28,6 +29,9 @@ const REASONS = {
   king: '¡Se comió al rey!',
   goal: '¡Todas sus fichas llegaron a la meta!',
   limit: 'Tablas por límite de jugadas',
+  wipeout: '¡Se comió todas las fichas!',
+  blocked: '¡Dejó al rival sin movimientos!',
+  quiet: 'Tablas: 80 jugadas sin capturas',
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const LEVEL_NAME = { easy: 'Fácil', normal: 'Normal', hard: 'Difícil' };
@@ -208,8 +212,10 @@ function renderGameSettings() {
     <h2>Juego</h2>
     <div class="segmented" data-name="game">
       <button class="seg ${state.game === 'chess' ? 'active' : ''}" data-v="chess" ${can ? '' : 'disabled'}>♟ Ajedrez</button>
+      <button class="seg ${state.game === 'draughts' ? 'active' : ''}" data-v="draughts" ${can ? '' : 'disabled'}>⛀ Damas</button>
       <button class="seg ${state.game === 'checkers' ? 'active' : ''}" data-v="checkers" ${can ? '' : 'disabled'}>✦ Damas chinas</button>
     </div>
+    ${state.game === 'draughts' ? '<p class="muted small">Damas clásicas: avanza en diagonal, comer es obligatorio y se encadenan capturas. Al llegar al fondo la ficha evoluciona y se mueve en cualquier diagonal. Gana quien deja al rival sin fichas o sin movimientos.</p>' : ''}
     ${state.game === 'checkers' ? '<p class="muted small">Lleva tus 10 Pokémon a la punta contraria de la estrella. Puedes avanzar a un hueco vecino o saltar por encima de cualquier ficha, encadenando saltos. Tablas a las 200 jugadas.</p>' : ''}`;
   if (can) box.querySelectorAll('.seg').forEach((b) => (b.onclick = () => send({ type: 'game', game: b.dataset.v })));
 }
@@ -220,7 +226,11 @@ function renderBotSettings() {
   if (!state.bot) { box.innerHTML = ''; return; }
   const seg = (name, items, active) => `<div class="segmented" data-name="${name}">${items.map(([v, label]) =>
     `<button class="seg ${v === active ? 'active' : ''}" data-v="${v}">${label}</button>`).join('')}</div>`;
-  const help = state.game === 'checkers' ? {
+  const help = state.game === 'draughts' ? {
+    easy: 'Mueve al azar (pero come cuando es obligatorio).',
+    normal: 'Piensa 4 jugadas por adelantado.',
+    hard: 'Piensa hasta 8 jugadas por adelantado.',
+  } : state.game === 'checkers' ? {
     easy: 'Elige al azar entre las jugadas que más avanzan.',
     normal: 'Busca la jugada (o cadena de saltos) que más le acerca a la meta.',
     hard: 'Además piensa en tu mejor respuesta.',
@@ -250,7 +260,8 @@ function playerPanel(color, mine, botEditable = false) {
       <div class="t">${gg.name}</div><div class="r">${gg.region}</div>
     </button>`).join('');
   const checkers = state.game === 'checkers';
-  const variants = checkers ? '' : Gens.choosablePieces(p.gen).map((t) => {
+  const draughts = state.game === 'draughts';
+  const variants = checkers || draughts ? '' : Gens.choosablePieces(p.gen).map((t) => {
     const partner = Gens.partnerOf(p.gen, t); // p. ej. la reina que va con el rey
     return `
     <div class="variant">
@@ -267,6 +278,8 @@ function playerPanel(color, mine, botEditable = false) {
   }).join('');
   const lineup = checkers
     ? g.checkers.map((mon) => `<div>${thumb(mon, shiny)}<span>${mon.name}</span></div>`).join('')
+    : draughts
+      ? `<div>${thumb(g.draughts.man, shiny)}<span>Ficha · ${g.draughts.man.name}</span></div><div>${thumb(g.draughts.king, shiny)}<span>Dama · ${g.draughts.king.name}</span></div>`
     : ['k', 'q', 'r', 'b', 'n', 'p'].map((t) => {
       const mon = Gens.pokemonFor(p.gen, t, p.choices);
       return `<div>${thumb(mon, shiny)}<span>${Gens.PIECE_NAMES[t]}</span></div>`;
@@ -279,8 +292,8 @@ function playerPanel(color, mine, botEditable = false) {
     <div class="muted small">${p.bot ? `${ROBOT} Bot · ${LEVEL_NAME[state.bot.level]}` : `${p.host ? 'Anfitrión · ' : ''}${p.connected ? 'Conectado' : 'Desconectado'}`}</div>
     <div class="label-sm">Generación</div>
     <div class="gen-pick">${gens}</div>
-    ${checkers ? `<div class="label-sm">${mine ? 'Tus' : 'Sus'} fichas</div>` : variants || '<p class="muted small">En esta generación no hay piezas a elegir.</p>'}
-    <div class="lineup ${checkers ? 'ck-lineup' : ''}">${lineup}</div>
+    ${checkers || draughts ? `<div class="label-sm">${mine ? 'Tus' : 'Sus'} fichas</div>` : variants || '<p class="muted small">En esta generación no hay piezas a elegir.</p>'}
+    <div class="lineup ${checkers ? 'ck-lineup' : draughts ? 'dr-lineup' : ''}">${lineup}</div>
     ${mine
       ? `<button class="btn primary ready-btn">${p.ready ? 'Cancelar listo' : state.bot ? '¡A jugar!' : '¡Listo!'}</button>`
       : p.bot
@@ -299,6 +312,7 @@ function viewPos(sq, flip) {
 
 function renderGame(prev) {
   if (state.game === 'checkers') return renderCheckers(prev);
+  if (state.game === 'draughts') return renderDraughts(prev);
   $('board').className = 'board';
   const chess = loadChess(state.fen);
   const me = state.you;
@@ -392,7 +406,9 @@ let piecesFen = null;     // posición que muestran las piezas (ver posKey)
 
 /** Identificador de la posición, sirva para ajedrez o damas chinas. */
 function posKey(st) {
-  return st.game === 'checkers' && st.ck ? 'ck:' + JSON.stringify(st.ck.cells) : st.fen;
+  if (st.game === 'checkers' && st.ck) return 'ck:' + JSON.stringify(st.ck.cells);
+  if (st.game === 'draughts' && st.dr) return 'dr:' + JSON.stringify(st.dr.cells);
+  return st.fen;
 }
 let animToken = 0;        // invalida animaciones viejas si llega otra jugada
 
@@ -452,8 +468,8 @@ function updatePieces(prev, flip) {
   if (piecesFen === posKey(state) && piecesFlip === flip) return; // nada cambió (p. ej. solo selección)
   const oneMoreMove = prev && prev.status !== 'lobby' && prev.game === state.game && piecesFen === posKey(prev)
     && piecesFlip === flip && state.history.length === prev.history.length + 1;
-  const sync = state.game === 'checkers' ? syncCheckers : syncPieces;
-  const animate = state.game === 'checkers' ? animateCheckers : animateMove;
+  const sync = { checkers: syncCheckers, draughts: syncDraughts }[state.game] || syncPieces;
+  const animate = { checkers: animateCheckers, draughts: animateDraughts }[state.game] || animateMove;
   if (oneMoreMove && !reduceMotion.matches) animate(prev, flip);
   else { animToken++; sync(flip); }
 }
@@ -555,6 +571,194 @@ function animateMove(prev, flip) {
 function pickAttack(sprite) {
   const opts = ['Attack', 'Shoot'].filter((a) => sprite.duration(a) > 0);
   return opts[Math.floor(Math.random() * opts.length)] || 'Attack';
+}
+
+// ---------- Damas clásicas: tablero de 8×8 ----------
+
+let drSelected = null; // ficha seleccionada en damas
+
+function renderDraughts(prev) {
+  const me = state.you;
+  const flip = me === 'b';
+  const myTurn = state.status === 'playing' && state.turn === me;
+  const theme = state.activeBoard || 'ruta1';
+  $('board-wrap').className = `board-wrap theme-${theme}`;
+  const bd = Boards.BOARDS.find((b) => b.id === theme);
+  $('board-name').textContent = bd ? `📍 ${bd.name}` : '';
+
+  const st = { cells: state.dr ? state.dr.cells : {}, turn: state.turn };
+  const legal = myTurn ? DR.legalMoves(st) : [];
+  const movable = new Set(legal.map((m) => m.from));
+  const mustCapture = legal.length > 0 && legal[0].captured.length > 0;
+  const dests = new Map(drSelected ? legal.filter((m) => m.from === drSelected).map((m) => [m.to, m]) : []);
+  const lm = state.lastMove && state.lastMove.path ? state.lastMove : null;
+
+  const files = 'abcdefgh';
+  let html = '';
+  for (let vr = 0; vr < 8; vr++) {
+    for (let vc = 0; vc < 8; vc++) {
+      const r = flip ? 7 - vr : vr;
+      const c = flip ? 7 - vc : vc;
+      const sq = files[c] + (8 - r);
+      const cls = ['sq', (r + c) % 2 === 0 ? 'l' : 'd'];
+      if (lm && lm.path.includes(sq)) cls.push('last');
+      if (sq === drSelected) cls.push('sel');
+      if (dests.has(sq)) cls.push('dot');
+      if (mustCapture && movable.has(sq) && sq !== drSelected) cls.push('must');
+      let inner = '';
+      if (vc === 0) inner += `<span class="coord r">${8 - r}</span>`;
+      if (vr === 7) inner += `<span class="coord f">${files[c]}</span>`;
+      html += `<div class="${cls.join(' ')}" data-sq="${sq}">${inner}</div>`;
+    }
+  }
+  const b = $('board');
+  b.className = 'board';
+  b.innerHTML = html;
+  b.querySelectorAll('.sq').forEach((el) => (el.onclick = () => onDraughtSquare(el.dataset.sq, st, movable, dests)));
+
+  updatePieces(prev, flip);
+
+  const rival = me === 'w' ? 'b' : 'w';
+  setHtml($('bar-top'), playerBar(rival, []));
+  setHtml($('bar-bottom'), playerBar(me, []));
+
+  const s = $('status');
+  s.classList.toggle('end', state.status === 'over');
+  if (state.status === 'over') {
+    const r = state.result;
+    const who = r.winner ? `Ganan ${COLOR_NAME[r.winner]} (${state.players[r.winner].name})` : 'Empate';
+    s.textContent = `${REASONS[r.reason]} ${who}`;
+  } else {
+    const other = state.players[state.turn];
+    s.textContent = myTurn ? (mustCapture ? '¡Tienes que comer!' : 'Te toca mover') : other.bot ? `${other.name} está pensando…` : `Turno de ${other.name}`;
+  }
+  $('history').innerHTML = state.history.map((h, i) => `<li class="ck-h ${i % 2 ? 'b' : 'w'}">${escapeHtml(h)}</li>`).join('');
+  $('history').scrollTop = $('history').scrollHeight;
+  $('btn-resign').classList.toggle('hidden', state.status !== 'playing');
+  const rb = $('btn-rematch');
+  rb.classList.toggle('hidden', state.status !== 'over');
+  rb.disabled = !!(state.rematch && state.rematch[me]);
+  rb.textContent = state.rematch && state.rematch[me] ? 'Esperando al rival…' : state.rematch && state.rematch[rival] ? 'Aceptar revancha' : 'Revancha';
+}
+
+function onDraughtSquare(sq, st, movable, dests) {
+  if (!state || state.status !== 'playing' || state.turn !== state.you) return;
+  if (drSelected && dests.has(sq)) {
+    const m = dests.get(sq);
+    send({ type: 'move', from: m.from, to: m.to, path: m.path });
+    drSelected = null;
+    return renderDraughts(state);
+  }
+  const p = st.cells[sq];
+  if (p && p.color === state.you && !movable.has(sq)) toast('Comer es obligatorio: mueve una ficha que pueda comer');
+  drSelected = p && movable.has(sq) && sq !== drSelected ? sq : null;
+  renderDraughts(state);
+}
+
+function drMon(p) {
+  const pair = Gens.GENERATIONS[state.players[p.color].gen].draughts;
+  return p.king ? pair.king : pair.man;
+}
+function drPieceKey(p) { return `${p.color}d${p.id}${p.king ? 'K' : ''}-${drMon(p).id}`; }
+
+function createDr(p, sq, flip) {
+  const mon = drMon(p);
+  const el = document.createElement('div');
+  el.className = `piece ${p.color}${p.king ? ' king' : ''}`;
+  el.innerHTML = `<span class="ball-badge ${BALL[p.color].cls}" title="${BALL[p.color].name}"></span><canvas></canvas>`;
+  el.title = `${mon.name}${p.king ? ' (dama)' : ''}`;
+  $('pieces').appendChild(el);
+  const entry = { el, sprite: new MonSprite(el.querySelector('canvas'), mon.id, p.color === 'b', 'board'), key: drPieceKey(p) };
+  place(entry, sq, flip);
+  return entry;
+}
+
+/** Deja las fichas como en el estado actual. Las que acaban de coronar aparecen evolucionando. */
+function syncDraughts(flip) {
+  if (pendingCleanup) pendingCleanup();
+  if (piecesFlip !== flip) {
+    for (const e of pieces.values()) removePiece(e);
+    pieces.clear();
+    piecesFlip = flip;
+  }
+  const want = new Map(Object.entries(state.dr ? state.dr.cells : {}));
+  for (const [sq, e] of pieces) {
+    const p = want.get(sq);
+    if (!p || drPieceKey(p) !== e.key) {
+      if (p && p.king && e.key === drPieceKey({ ...p, king: false })) e.evolved = true; // coronó
+      removePiece(e);
+      pieces.delete(sq);
+      if (p && p.king && e.evolved) {
+        const ne = createDr(p, sq, flip);
+        ne.el.classList.add('evolving');
+        pieces.set(sq, ne);
+      }
+    }
+  }
+  for (const [sq, p] of want) {
+    if (!pieces.has(sq)) pieces.set(sq, createDr(p, sq, flip));
+    else place(pieces.get(sq), sq, flip);
+  }
+  const alive = new Set([...pieces.values()].map((e) => e.el));
+  for (const el of [...$('pieces').children]) if (!alive.has(el)) el.remove();
+  piecesFen = posKey(state);
+}
+
+/** La ficha recorre su camino; en cada captura ataca y la víctima se debilita. */
+function animateDraughts(prev, flip) {
+  if (pendingCleanup) pendingCleanup();
+  const token = ++animToken;
+  const mv = state.lastMove;
+  const mover = mv && mv.path && pieces.get(mv.from);
+  if (!mover) return syncDraughts(flip);
+  const victims = (mv.captured || []).map((sq) => pieces.get(sq) || null);
+  for (const sq of mv.captured || []) pieces.delete(sq);
+  pieces.delete(mv.from);
+  pieces.set(mv.to, mover);
+  piecesFen = posKey(state);
+
+  const cleanup = () => {
+    if (pendingCleanup !== cleanup) return;
+    pendingCleanup = null;
+    for (const v of victims) if (v) removePiece(v);
+    mover.el.style.transition = '';
+    mover.el.classList.remove('moving', 'attacking');
+    mover.sprite.play('Idle', { dir: 0 });
+  };
+  pendingCleanup = cleanup;
+  const done = () => { if (token !== animToken) return; cleanup(); syncDraughts(flip); };
+
+  const step = (i) => {
+    if (token !== animToken) return;
+    if (i >= mv.path.length) return done();
+    const a = viewPos(mv.path[i - 1], flip);
+    const b = viewPos(mv.path[i], flip);
+    const dir = dirFromDelta(b.col - a.col, b.row - a.row);
+    const ms = victims.length ? 420 : 320;
+    mover.sprite.play('Walk', { dir });
+    mover.el.classList.add('moving');
+    mover.el.style.transition = `left ${ms}ms linear, top ${ms}ms linear`;
+    void mover.el.offsetWidth;
+    place(mover, mv.path[i], flip);
+    setTimeout(() => {
+      if (token !== animToken) return;
+      mover.el.style.transition = '';
+      mover.el.classList.remove('moving');
+      const victim = victims[i - 1];
+      if (!victim) return step(i + 1);
+      // Ataque sobre la ficha saltada: se gira hacia atrás (donde quedó la víctima)
+      const attack = pickAttack(mover.sprite);
+      const atk = Math.min(mover.sprite.duration(attack) || 400, 700);
+      mover.el.classList.add('attacking');
+      mover.sprite.play(attack, { dir: (dir + 4) % 8, loop: false, onDone: () => mover.sprite.play('Idle', { dir: 0 }) });
+      setTimeout(() => {
+        if (token !== animToken) return;
+        victim.sprite.play('Hurt', { dir, loop: false, onDone: () => victim.sprite.play('Faint', { loop: false, onDone: () => victim.el.classList.add('fainting') }) });
+      }, atk * 0.4);
+      setTimeout(() => { mover.el.classList.remove('attacking'); step(i + 1); }, Math.max(atk, 650));
+    }, ms);
+  };
+  step(1);
 }
 
 // ---------- Damas chinas: tablero de estrella ----------
@@ -755,14 +959,16 @@ function playerBar(color, caps) {
   const p = state.players[color];
   const turn = state.status === 'playing' && state.turn === color;
   const victimColor = color === 'w' ? 'b' : 'w';
-  const capImgs = state.game === 'checkers' ? '' : caps.map((t) => thumb(monFor(victimColor, t), victimColor === 'b')).join('');
+  const capImgs = state.game !== 'chess' ? '' : caps.map((t) => thumb(monFor(victimColor, t), victimColor === 'b')).join('');
   return `<span class="ball-icon ${BALL[color].cls}" title="${BALL[color].name}"></span>
     <span class="nm">${escapeHtml(p.name)}${color === state.you ? ' (tú)' : ''}</span>
     <span class="tag">${Gens.GENERATIONS[p.gen].name}</span>
     ${p.bot ? `<span class="tag">${ROBOT} ${LEVEL_NAME[state.bot.level]}</span>` : ''}
     ${p.connected ? '' : '<span class="tag off">desconectado</span>'}
     ${turn ? '<span class="turn">● su turno</span>' : ''}
-    ${state.game === 'checkers' && state.ck
+    ${state.game === 'draughts' && state.dr
+      ? `<span class="tag goal-tag">Fichas: ${state.dr.count[color]}/12</span>`
+      : state.game === 'checkers' && state.ck
       ? `<span class="tag goal-tag">En meta: ${state.ck.inGoal[color]}/10</span>`
       : `<span class="captured">${capImgs}</span>`}`;
 }

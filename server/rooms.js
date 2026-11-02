@@ -11,8 +11,8 @@
  * rival se come al rey, gana. No hay jaque mate automático ni avisos de jaque.
  * Se usan las jugadas "pseudolegales" de chess.js (_moves({ legal: false })).
  *
- * Modo de juego (room.game): 'chess' (ajedrez) o 'checkers' (damas chinas, reglas en
- * shared/checkers.js). Lo elige el anfitrión en el lobby.
+ * Modo de juego (room.game): 'chess' (ajedrez), 'draughts' (damas clásicas, reglas en
+ * shared/draughts.js) o 'checkers' (damas chinas, shared/checkers.js). Lo elige el anfitrión.
  *
  * Salas contra el bot: uno de los asientos lo ocupa el bot (isBot), que siempre
  * está "listo" y "conectado". El jugador elige dificultad, su color y la
@@ -23,7 +23,8 @@ const { Chess } = require('chess.js');
 const Gens = require('../shared/generations');
 const Boards = require('../shared/boards');
 const Checkers = require('../shared/checkers');
-const GAMES = ['chess', 'checkers'];
+const Draughts = require('../shared/draughts');
+const GAMES = ['chess', 'draughts', 'checkers'];
 
 /** Error "esperado" cuyo mensaje se puede mostrar al jugador. */
 class RoomError extends Error {}
@@ -75,6 +76,7 @@ class Room {
     this.bot = null;                   // en salas contra el bot: { level, colorPref }
     this.game = 'chess';               // 'chess' | 'checkers'
     this.ck = null;                    // estado de las damas chinas durante la partida
+    this.dr = null;                    // estado de las damas clásicas durante la partida
     this.attentive = true;             // modo atento: se puede dejar al rey en peligro
     this.sanHistory = [];              // historial propio (chess.js no anota jugadas pseudolegales)
     this.updatedAt = Date.now();
@@ -206,7 +208,9 @@ class Room {
 
   /** Turno actual en cualquiera de los dos juegos. */
   turn() {
-    return this.game === 'checkers' && this.ck ? this.ck.turn : this.chess.turn();
+    if (this.game === 'checkers' && this.ck) return this.ck.turn;
+    if (this.game === 'draughts' && this.dr) return this.dr.turn;
+    return this.chess.turn();
   }
 
   /** El anfitrión elige las reglas: modo atento (true) o clásico (false). */
@@ -253,6 +257,7 @@ class Room {
     }
     this.chess = new Chess();
     this.ck = this.game === 'checkers' ? Checkers.create() : null;
+    this.dr = this.game === 'draughts' ? Draughts.create() : null;
     this.sanHistory = [];
     this.lastMove = null;
     this.result = null;
@@ -266,11 +271,12 @@ class Room {
    * En modo atento vale cualquier jugada que la pieza pueda hacer, aunque deje
    * a su rey en peligro; comerse al rey termina la partida.
    */
-  move(token, { from, to, promotion } = {}) {
+  move(token, { from, to, promotion, path } = {}) {
     const color = this.colorOf(token);
     if (this.status !== 'playing') throw new RoomError('La partida no está en curso');
     if (this.turn() !== color) throw new RoomError('No es tu turno');
     if (this.game === 'checkers') return this.checkersMove(color, from, to);
+    if (this.game === 'draughts') return this.draughtsMove(color, from, to, path);
     const mv = this.attentive ? this.pseudoMove(from, to, promotion) : this.legalMove(from, to, promotion);
     if (!mv) throw new RoomError('Jugada ilegal');
     this.sanHistory.push(mv.san);
@@ -292,6 +298,21 @@ class Room {
     this.lastMove = { from, to, path: res.path, id: res.id, color, jumps: res.jumps };
     if (Checkers.hasWon(this.ck, color)) this.finish(color, 'goal');
     else if (this.ck.moves >= Checkers.MAX_MOVES) this.finish(null, 'limit');
+    this.touch();
+    return this.lastMove;
+  }
+
+  /** Damas clásicas: valida, aplica, anota y comprueba si la partida terminó. */
+  draughtsMove(color, from, to, path) {
+    let m;
+    try { m = Draughts.applyMove(this.dr, color, from, to, Array.isArray(path) ? path : undefined); } catch (e) { throw new RoomError(e.message); }
+    const pair = Gens.GENERATIONS[this.seats[color].gen].draughts;
+    const name = m.wasKing ? pair.king.name : pair.man.name;
+    const route = m.captured.length ? m.path.join('×') : `${from}-${to}`;
+    this.sanHistory.push(`${name} ${route}${m.crown ? ' ⭐' : ''}`);
+    this.lastMove = { from, to, path: m.path, captured: m.captured, crown: m.crown, color, id: m.id };
+    const end = Draughts.outcome(this.dr);
+    if (end) this.finish(end.winner, end.reason);
     this.touch();
     return this.lastMove;
   }
@@ -373,6 +394,7 @@ class Room {
       this.rematch = { w: false, b: false };
       this.chess = new Chess();
       this.ck = null;
+      this.dr = null;
       this.sanHistory = [];
     }
     this.touch();
@@ -405,6 +427,7 @@ class Room {
       fen: this.chess.fen(),
       history: this.sanHistory,
       game: this.game,
+      dr: this.dr ? { cells: this.dr.cells, quiet: this.dr.quiet, count: { w: Draughts.count(this.dr, 'w'), b: Draughts.count(this.dr, 'b') } } : null,
       ck: this.ck ? { cells: this.ck.cells, moves: this.ck.moves, inGoal: { w: Checkers.inGoal(this.ck, 'w'), b: Checkers.inGoal(this.ck, 'b') } } : null,
       turn: this.turn(),
       // En modo atento no se avisa del jaque (hay que estar atento)
