@@ -5,11 +5,12 @@ const { RoomManager, RoomError } = require('../server/rooms');
 const Gens = require('../shared/generations');
 const Boards = require('../shared/boards');
 
-/** Sala con dos jugadores ya listos (partida empezada). */
-function startedRoom(gen = 1) {
+/** Sala con dos jugadores ya listos (partida empezada). Por defecto con reglas clásicas. */
+function startedRoom(gen = 1, attentive = false) {
   const m = new RoomManager();
   const host = m.create(gen, 'Ash');
   const guest = m.join(host.room.code, 'Gary');
+  host.room.setAttentive(host.token, attentive);
   host.room.setReady(host.token, true);
   host.room.setReady(guest.token, true);
   return { room: host.room, w: host.token, b: guest.token, m };
@@ -121,7 +122,9 @@ test('turnos y jugadas ilegales', () => {
   assert.throws(() => room.move(w, { from: 'e2', to: 'e5' }), /ilegal/);
   assert.throws(() => room.move('nadie', { from: 'e2', to: 'e4' }), RoomError);
   room.move(w, { from: 'e2', to: 'e4' });
-  assert.deepStrictEqual(room.lastMove, { from: 'e2', to: 'e4' });
+  assert.strictEqual(room.lastMove.from, 'e2');
+  assert.strictEqual(room.lastMove.to, 'e4');
+  assert.deepStrictEqual(room.publicState(w).history, ['e4']);
   assert.strictEqual(room.chess.turn(), 'b');
 });
 

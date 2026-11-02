@@ -7,6 +7,10 @@
  *   playing -> se juega; el servidor valida cada jugada con chess.js
  *   over    -> terminó (mate, tablas o rendición); ambos pueden pedir revancha
  *
+ * Modo atento (por defecto): se puede mover aunque el rey quede en peligro; si el
+ * rival se come al rey, gana. No hay jaque mate automático ni avisos de jaque.
+ * Se usan las jugadas "pseudolegales" de chess.js (_moves({ legal: false })).
+ *
  * Salas contra el bot: uno de los asientos lo ocupa el bot (isBot), que siempre
  * está "listo" y "conectado". El jugador elige dificultad, su color y la
  * generación del bot. Quién mueve al bot lo decide server.js (botToMove + bot.js).
@@ -29,6 +33,12 @@ function randomCode(len = 5) {
 
 const BOT_LEVELS = ['easy', 'normal', 'hard'];
 const COLOR_PREFS = ['w', 'b', 'random'];
+const FLAG_CHARS = { 1: 'n', 2: 'c', 4: 'b', 8: 'e', 16: 'p', 32: 'k', 64: 'q' };
+/** Casilla 0x88 -> 'e4'. */
+const sq = (i) => 'abcdefgh'[i & 15] + (8 - (i >> 4));
+/** Bits de jugada interna de chess.js -> letras de flags ('c', 'e', 'k'...). */
+const flagString = (bits) => Object.entries(FLAG_CHARS).filter(([b]) => bits & Number(b)).map(([, c]) => c).join('');
+
 const genIds = () => Object.keys(Gens.GENERATIONS).map(Number);
 
 /** Generación y variantes al azar (para el bot). */
@@ -58,6 +68,8 @@ class Room {
     this.result = null; // { winner: 'w'|'b'|null, reason }
     this.rematch = { w: false, b: false };
     this.bot = null;                   // en salas contra el bot: { level, colorPref }
+    this.attentive = true;             // modo atento: se puede dejar al rey en peligro
+    this.sanHistory = [];              // historial propio (chess.js no anota jugadas pseudolegales)
     this.updatedAt = Date.now();
   }
 
@@ -175,6 +187,15 @@ class Room {
     this.touch();
   }
 
+  /** El anfitrión elige las reglas: modo atento (true) o clásico (false). */
+  setAttentive(token, on) {
+    this.colorOf(token);
+    if (token !== this.hostToken) throw new RoomError('Solo el anfitrión elige las reglas');
+    if (this.status !== 'lobby') throw new RoomError('La partida ya empezó');
+    this.attentive = !!on;
+    this.touch();
+  }
+
   /** El anfitrión elige el tablero temático (o 'random'). */
   setBoard(token, board) {
     this.colorOf(token);
@@ -209,6 +230,7 @@ class Room {
       [this.seats.w, this.seats.b] = [this.seats.b, this.seats.w];
     }
     this.chess = new Chess();
+    this.sanHistory = [];
     this.lastMove = null;
     this.result = null;
     this.rematch = { w: false, b: false };
@@ -216,26 +238,56 @@ class Room {
     this.activeBoard = this.board === 'random' ? Boards.randomBoard() : this.board;
   }
 
-  /** Valida y aplica una jugada. Devuelve el objeto de jugada de chess.js. */
+  /**
+   * Valida y aplica una jugada. Devuelve { from, to, san, flags, captured, promotion }.
+   * En modo atento vale cualquier jugada que la pieza pueda hacer, aunque deje
+   * a su rey en peligro; comerse al rey termina la partida.
+   */
   move(token, { from, to, promotion } = {}) {
     const color = this.colorOf(token);
     if (this.status !== 'playing') throw new RoomError('La partida no está en curso');
     if (this.chess.turn() !== color) throw new RoomError('No es tu turno');
-    let mv;
-    try {
-      mv = this.chess.move({ from, to, promotion: promotion || undefined });
-    } catch {
-      mv = null;
-    }
+    const mv = this.attentive ? this.pseudoMove(from, to, promotion) : this.legalMove(from, to, promotion);
     if (!mv) throw new RoomError('Jugada ilegal');
-    this.lastMove = { from: mv.from, to: mv.to };
-    this.checkGameOver();
+    this.sanHistory.push(mv.san);
+    this.lastMove = mv;
+    if (mv.captured === 'k') this.finish(color, 'king');
+    else this.checkGameOver();
     this.touch();
     return mv;
   }
 
+  /** Reglas clásicas: la API pública de chess.js. */
+  legalMove(from, to, promotion) {
+    let mv = null;
+    try { mv = this.chess.move({ from, to, promotion: promotion || undefined }); } catch { mv = null; }
+    return mv && { from: mv.from, to: mv.to, san: mv.san, flags: mv.flags, captured: mv.captured, promotion: mv.promotion };
+  }
+
+  /** Modo atento: busca la jugada entre las pseudolegales y la aplica con los métodos internos. */
+  pseudoMove(from, to, promotion) {
+    const c = this.chess;
+    const moves = c._moves({ legal: false });
+    const m = moves.find((x) => sq(x.from) === from && sq(x.to) === to
+      && (!x.promotion || x.promotion === (promotion || 'q')));
+    if (!m) return null;
+    let san;
+    if (m.captured === 'k') san = `${m.piece === 'p' ? from[0] : m.piece.toUpperCase()}x${to}#`;
+    else {
+      try { san = c._moveToSan(m, moves).replace(/[+#]$/, ''); } catch { san = from + to; }
+    }
+    c._makeMove(m);
+    return { from, to, san, flags: flagString(m.flags), captured: m.captured, promotion: m.promotion };
+  }
+
   checkGameOver() {
     const c = this.chess;
+    if (this.attentive) {
+      // Sin jaque mate ni ahogado: solo tablas por material o por la regla de 50 jugadas
+      if (c.isInsufficientMaterial()) this.finish(null, 'material');
+      else if (c._halfMoves >= 100) this.finish(null, 'fifty');
+      return;
+    }
     if (!c.isGameOver()) return;
     let reason;
     let winner = null;
@@ -281,6 +333,7 @@ class Room {
       this.lastMove = null;
       this.rematch = { w: false, b: false };
       this.chess = new Chess();
+      this.sanHistory = [];
     }
     this.touch();
   }
@@ -310,9 +363,11 @@ class Room {
       isHost: token === this.hostToken,
       players: { w: seat('w'), b: seat('b') },
       fen: this.chess.fen(),
-      history: this.chess.history(),
+      history: this.sanHistory,
       turn: this.chess.turn(),
-      inCheck: this.chess.inCheck(),
+      // En modo atento no se avisa del jaque (hay que estar atento)
+      inCheck: !this.attentive && this.status === 'playing' && this.chess.inCheck(),
+      attentive: this.attentive,
       lastMove: this.lastMove,
       result: this.result,
       rematch: this.rematch,

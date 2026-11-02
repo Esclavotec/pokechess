@@ -14,6 +14,7 @@
  *   { type: 'move', from, to, promotion }
  *   { type: 'botOptions', level?, gen?, choices?, random? }  (contra el bot) ajustes del bot
  *   { type: 'color', pref }              (contra el bot) 'w' | 'b' | 'random'
+ *   { type: 'rules', attentive }         (anfitrión) modo atento o clásico
  *   { type: 'resign' } | { type: 'rematch' }
  * Servidor -> cliente:
  *   { type: 'joined', code, token, color }   guardar token para reconectar
@@ -65,20 +66,22 @@ function createServer({ botDelayMs = 900 } = {}) {
     if (room.botThinking || !room.botToMove()) return;
     room.botThinking = true;
     broadcast(room); // el cliente muestra "pensando…"
-    const plies = room.chess.history().length;
+    const plies = room.sanHistory.length;
+    // Tras una captura la animación de ataque dura más: el bot espera a que termine
+    const extra = botDelayMs && room.lastMove && room.lastMove.captured ? 1300 : 0;
     setTimeout(() => {
       room.botThinking = false;
       const token = room.botToMove();
       // Puede que entretanto el jugador se haya rendido o la sala haya cambiado
-      if (!token || room.chess.history().length !== plies) return broadcast(room);
+      if (!token || room.sanHistory.length !== plies) return broadcast(room);
       try {
-        const mv = Bot.chooseMove(room.chess.fen(), room.bot.level);
+        const mv = Bot.chooseMove(room.chess.fen(), room.bot.level, { attentive: room.attentive });
         if (mv) room.move(token, mv);
       } catch (err) {
         console.error('Error del bot:', err);
       }
       broadcast(room);
-    }, botDelayMs);
+    }, botDelayMs + extra);
   }
 
   function attach(ws, room, token, color) {
@@ -128,6 +131,7 @@ function createServer({ botDelayMs = 900 } = {}) {
           case 'rematch': room.requestRematch(token); break;
           case 'botOptions': room.setBotOptions(token, msg); break;
           case 'color': room.setColorPref(token, msg.pref); break;
+          case 'rules': room.setAttentive(token, msg.attentive); break;
           default: return;
         }
         broadcast(room);

@@ -10,7 +10,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="logo"><span class="ball"></span>PokéChess</div>
+    <div class="logo"><span class="ball" aria-hidden="true"></span><span class="logo-text">PokéChess</span></div>
     <div id="room-badge" class="room-badge hidden"></div>
   </header>
 
@@ -26,7 +26,7 @@
         <div class="field-label">Tu generación</div>
         <div class="gen-pick" id="home-gens"></div>
         <button id="btn-create" class="btn primary">Crear sala online</button>
-        <button id="btn-bot" class="btn bot-btn">🤖 Jugar contra el bot</button>
+        <button id="btn-bot" class="btn bot-btn"><span class="px-robot" aria-hidden="true"></span> Jugar contra el bot</button>
         <div class="divider"><span>o únete</span></div>
         <div class="join-row">
           <input id="join-code" maxlength="5" placeholder="CÓDIGO" autocapitalize="characters">
@@ -46,6 +46,7 @@
           <button id="btn-copy" class="btn small">Copiar link</button>
         </div>
         <div id="bot-settings"></div>
+        <div id="rules-settings"></div>
         <h2>Tablero</h2>
         <div class="board-pick" id="lobby-boards"></div>
         <p id="board-note" class="muted small"></p>

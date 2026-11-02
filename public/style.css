@@ -41,15 +41,20 @@ h3 { font-size: 0.65rem; margin: 16px 0 8px; }
   padding: 12px 16px; background: var(--red); color: #fff;
   border-bottom: 4px solid var(--red-dark);
 }
-.logo { font-size: 0.85rem; display: flex; align-items: center; gap: 10px; }
+/* Logo pixel art: Poké Ball de 16×16 y título en fuente pixel con sombra escalonada */
+.logo { font-size: 0.95rem; display: flex; align-items: center; gap: 10px; }
 .ball {
-  width: 22px; height: 22px; border-radius: 50%; border: 3px solid #222;
-  background: linear-gradient(#e3350d 0 45%, #222 45% 55%, #fff 55%);
-  position: relative;
+  width: 32px; height: 32px; flex: none;
+  background: url(img/pokeball.svg) center / contain no-repeat; image-rendering: pixelated;
 }
-.ball::after {
-  content: ''; position: absolute; inset: 5px; border-radius: 50%;
-  background: #fff; border: 2px solid #222;
+.logo-text {
+  color: #ffcb05; letter-spacing: 1px;
+  text-shadow: 2px 0 #2a75bb, -2px 0 #2a75bb, 0 2px #2a75bb, 0 -2px #2a75bb, 3px 3px #1c3d6e;
+}
+/* Robot del bot en pixel art (sustituye al emoji) */
+.px-robot {
+  display: inline-block; width: 1.25em; height: 1.25em; vertical-align: -0.25em;
+  background: url(img/robot.svg) center / contain no-repeat; image-rendering: pixelated;
 }
 .room-badge { font-family: 'Press Start 2P', monospace; font-size: 0.65rem; }
 

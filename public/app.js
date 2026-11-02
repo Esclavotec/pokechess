@@ -24,9 +24,20 @@ const REASONS = {
   repetition: 'Tablas por triple repetición',
   material: 'Tablas por material insuficiente',
   fifty: 'Tablas por la regla de 50 jugadas',
+  king: '¡Se comió al rey!',
 };
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const LEVEL_NAME = { easy: 'Fácil', normal: 'Normal', hard: 'Difícil' };
+const ROBOT = '<span class="px-robot" aria-hidden="true"></span>';
+
+/** Carga una posición aunque falte un rey (al final de una partida en modo atento). */
+function loadChess(fen) {
+  const c = new Chess();
+  c.load(fen, { skipValidation: true });
+  return c;
+}
+/** Casilla 0x88 interna de chess.js -> 'e4'. */
+const sq0x88 = (i) => 'abcdefgh'[i & 15] + (8 - (i >> 4));
 
 let ws = null;
 let state = null;          // último estado recibido del servidor
@@ -120,6 +131,7 @@ function renderLobby() {
   $('lobby-code').textContent = state.code;
   $('share-row').classList.toggle('hidden', !!state.bot); // contra el bot no hay nada que compartir
   renderBotSettings();
+  renderRules();
 
   // Tableros (los elige el anfitrión)
   const opts = [{ id: 'random', name: 'Aleatorio', region: 'Sorpresa' }, ...Boards.BOARDS];
@@ -164,6 +176,22 @@ function renderLobby() {
     const rnd = bp.querySelector('.random-btn');
     if (rnd) rnd.onclick = () => send({ type: 'botOptions', random: true });
   }
+}
+
+/** Reglas: modo atento (por defecto) o clásico. Las elige el anfitrión. */
+function renderRules() {
+  const box = $('rules-settings');
+  const can = state.isHost;
+  box.innerHTML = `
+    <h2>Reglas</h2>
+    <div class="segmented" data-name="rules">
+      <button class="seg ${state.attentive ? 'active' : ''}" data-v="1" ${can ? '' : 'disabled'}>Modo atento</button>
+      <button class="seg ${state.attentive ? '' : 'active'}" data-v="0" ${can ? '' : 'disabled'}>Clásico</button>
+    </div>
+    <p class="muted small">${state.attentive
+      ? 'Puedes mover aunque dejes a tu rey en peligro, y nadie te avisa del jaque. Si el rival se come a tu rey, pierdes. ¡Atento!'
+      : 'Reglas normales del ajedrez: no se puede dejar al rey en jaque y se gana por jaque mate.'}</p>`;
+  if (can) box.querySelectorAll('.seg').forEach((b) => (b.onclick = () => send({ type: 'rules', attentive: b.dataset.v === '1' })));
 }
 
 /** Ajustes de la partida contra el bot: dificultad y tu color. */
@@ -215,7 +243,7 @@ function playerPanel(color, mine, botEditable = false) {
       <div class="who">${escapeHtml(p.name)}${mine ? ' (tú)' : ''}</div>
       <span class="tag"><span class="ball-icon ${BALL[color].cls}"></span>${COLOR_NAME[color]}${shiny ? ' · shiny' : ''}</span>
     </div>
-    <div class="muted small">${p.bot ? `🤖 Bot · ${LEVEL_NAME[state.bot.level]}` : `${p.host ? 'Anfitrión · ' : ''}${p.connected ? 'Conectado' : 'Desconectado'}`}</div>
+    <div class="muted small">${p.bot ? `${ROBOT} Bot · ${LEVEL_NAME[state.bot.level]}` : `${p.host ? 'Anfitrión · ' : ''}${p.connected ? 'Conectado' : 'Desconectado'}`}</div>
     <div class="label-sm">Generación</div>
     <div class="gen-pick">${gens}</div>
     ${variants || '<p class="muted small">En esta generación no hay piezas a elegir.</p>'}
@@ -237,7 +265,7 @@ function viewPos(sq, flip) {
 }
 
 function renderGame(prev) {
-  const chess = new Chess(state.fen);
+  const chess = loadChess(state.fen);
   const me = state.you;
   const flip = me === 'b';
   const files = 'abcdefgh';
@@ -252,7 +280,14 @@ function renderGame(prev) {
   // Destinos legales de la pieza seleccionada
   const targets = new Map();
   if (selected && myTurn) {
-    for (const m of chess.moves({ square: selected, verbose: true })) targets.set(m.to, m);
+    if (state.attentive) {
+      // Modo atento: también las jugadas que dejan al rey en peligro
+      for (const m of chess._moves({ legal: false, square: selected })) {
+        targets.set(sq0x88(m.to), { to: sq0x88(m.to), promotion: m.promotion });
+      }
+    } else {
+      for (const m of chess.moves({ square: selected, verbose: true })) targets.set(m.to, m);
+    }
   }
   const checkSq = state.inCheck ? findKing(chess.board(), state.turn) : null;
 
@@ -294,8 +329,8 @@ function renderGame(prev) {
   } else {
     const other = state.players[state.turn];
     st.textContent = myTurn
-      ? (state.inCheck ? '¡Jaque! Te toca' : 'Te toca mover')
-      : other.bot ? `🤖 ${other.name} está pensando…` : `Turno de ${other.name}`;
+      ? (state.inCheck ? '¡Jaque! Te toca' : 'Te toca mover') // inCheck siempre es false en modo atento
+      : other.bot ? `${other.name} está pensando…` : `Turno de ${other.name}`;
   }
 
   // Historial en parejas (blancas / negras)
@@ -346,14 +381,17 @@ function removePiece(entry) {
   entry.el.remove();
 }
 
+let pendingCleanup = null; // termina al instante la animación en curso (si llega otra jugada)
+
 /** Deja la capa de piezas exactamente como la posición actual (sin animar). */
 function syncPieces(flip) {
+  if (pendingCleanup) pendingCleanup();
   if (piecesFlip !== flip) {
     for (const e of pieces.values()) removePiece(e);
     pieces.clear();
     piecesFlip = flip;
   }
-  const chess = new Chess(state.fen);
+  const chess = loadChess(state.fen);
   const want = new Map();
   for (const row of chess.board()) for (const p of row) if (p) want.set(p.square, p);
   for (const [sq, e] of pieces) {
@@ -364,6 +402,9 @@ function syncPieces(flip) {
     if (!pieces.has(sq)) pieces.set(sq, createPiece(p, sq, flip));
     else place(pieces.get(sq), sq, flip);
   }
+  // Ningún sprite puede quedar en el tablero sin una pieza real detrás
+  const alive = new Set([...pieces.values()].map((e) => e.el));
+  for (const el of [...$('pieces').children]) if (!alive.has(el)) el.remove();
   piecesFen = state.fen;
 }
 
@@ -381,10 +422,10 @@ function updatePieces(prev, flip) {
  * torre camina también.
  */
 function animateMove(prev, flip) {
+  if (pendingCleanup) pendingCleanup(); // la jugada anterior aún se animaba: se termina ya
   const token = ++animToken;
-  let mv;
-  try { mv = new Chess(prev.fen).move(state.history[state.history.length - 1]); } catch { mv = null; }
-  const mover = mv && pieces.get(mv.from);
+  const mv = state.lastMove; // { from, to, flags, captured } enviado por el servidor
+  const mover = mv && mv.flags !== undefined && pieces.get(mv.from);
   if (!mover) return syncPieces(flip);
 
   const steps = [{ entry: mover, from: mv.from, to: mv.to }];
@@ -403,10 +444,21 @@ function animateMove(prev, flip) {
   for (const s of steps) pieces.set(s.to, s.entry);
   piecesFen = state.fen;
 
+  // Limpieza: se ejecuta al terminar o si otra jugada interrumpe esta animación
+  const cleanup = () => {
+    if (pendingCleanup !== cleanup) return;
+    pendingCleanup = null;
+    if (victim) removePiece(victim);
+    for (const s of steps) {
+      s.entry.el.style.transition = '';
+      s.entry.el.classList.remove('moving', 'attacking');
+      s.entry.sprite.play('Idle', { dir: 0 });
+    }
+  };
+  pendingCleanup = cleanup;
   const finish = () => {
     if (token !== animToken) return;
-    if (victim) removePiece(victim);
-    mover.el.classList.remove('attacking');
+    cleanup();
     syncPieces(flip); // aplica coronaciones y corrige cualquier diferencia
   };
 
@@ -505,7 +557,7 @@ function playerBar(color, caps) {
   return `<span class="ball-icon ${BALL[color].cls}" title="${BALL[color].name}"></span>
     <span class="nm">${escapeHtml(p.name)}${color === state.you ? ' (tú)' : ''}</span>
     <span class="tag">${Gens.GENERATIONS[p.gen].name}</span>
-    ${p.bot ? `<span class="tag">🤖 ${LEVEL_NAME[state.bot.level]}</span>` : ''}
+    ${p.bot ? `<span class="tag">${ROBOT} ${LEVEL_NAME[state.bot.level]}</span>` : ''}
     ${p.connected ? '' : '<span class="tag off">desconectado</span>'}
     ${turn ? '<span class="turn">● su turno</span>' : ''}
     <span class="captured">${capImgs}</span>`;

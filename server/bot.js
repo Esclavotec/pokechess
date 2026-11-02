@@ -6,6 +6,10 @@
  * - Normal:  minimax con poda alfa-beta a 2 jugadas, con un poco de variedad.
  * - Difícil: profundización iterativa hasta 4 jugadas con límite de tiempo.
  *
+ * Modo atento: si el rival dejó su rey en peligro, cualquier nivel se lo come.
+ * El bot nunca deja el suyo (busca solo entre sus jugadas legales); si no le
+ * queda ninguna, mueve lo que pueda.
+ *
  * La evaluación suma el material y una tabla de "buenas casillas" por pieza
  * (tablas simplificadas clásicas). Las capturas se exploran primero
  * (víctima más valiosa / atacante menos valioso) para podar más.
@@ -151,12 +155,18 @@ const toMove = (m) => ({ from: square(m.from), to: square(m.to), promotion: m.pr
  * Elige la jugada del bot.
  * @param {string} fen      posición actual
  * @param {string} level    'easy' | 'normal' | 'hard'
- * @param {object} [opts]   { rand: () => number, timeMs } (para pruebas)
+ * @param {object} [opts]   { attentive, rand: () => number, timeMs }
  * @returns {{from, to, promotion}|null}
  */
 function chooseMove(fen, level = 'normal', opts = {}) {
   const rand = opts.rand || Math.random;
   const chess = new Chess(fen);
+  if (opts.attentive) {
+    const pseudo = chess._moves({ legal: false });
+    const kingCapture = pseudo.find((m) => m.captured === 'k');
+    if (kingCapture) return toMove(kingCapture);
+    if (!chess._moves({ legal: true }).length) return pseudo.length ? toMove(pick(pseudo, rand)) : null;
+  }
   const moves = chess._moves({ legal: true });
   if (!moves.length) return null;
 

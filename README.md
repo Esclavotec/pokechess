@@ -8,6 +8,8 @@ Ajedrez para 2 jugadores en tiempo real donde las piezas son Pokémon **animados
 - El anfitrión elige el **tablero**: lugares icónicos del mundo Pokémon (o aleatorio).
 - Las blancas llevan una **Honor Ball** bajo los pies y las negras una **Ocaso Ball**, además del sprite **shiny**. Sin sombras.
 - **Modo contra el bot** con tres dificultades: Fácil, Normal y Difícil.
+- **Modo atento** (por defecto): puedes dejar a tu rey en peligro y nadie te avisa; si el rival se lo come, gana.
+- Logo, Poké Ball y robot en **pixel art**.
 
 ## Piezas
 
@@ -45,6 +47,20 @@ Los sprites están incluidos en el proyecto: no hace falta internet para verlos.
 4. En el lobby: cada uno puede cambiar su generación y sus variantes (caballo/alfil); el anfitrión elige el tablero. Pulsad **¡Listo!**.
 5. Clic en una pieza para ver sus jugadas legales y clic en el destino. Al coronar eliges la pieza viendo los Pokémon.
 6. Al terminar (mate, tablas o rendición) pulsad **Revancha**: volvéis al lobby con los colores intercambiados.
+
+### Reglas: modo atento o clásico
+
+El anfitrión (o tú, contra el bot) elige las reglas en el lobby:
+
+| | Modo atento (por defecto) | Clásico |
+|---|---|---|
+| ¿Puedo dejar a mi rey en peligro? | Sí | No |
+| Aviso de jaque | No (ni brillo rojo, ni "¡Jaque!", ni "+" en el historial) | Sí |
+| Cómo se gana | **Comiéndose al rey** rival | Jaque mate |
+| Tablas | Material insuficiente o regla de 50 jugadas | Además ahogado y triple repetición |
+
+En modo atento, al seleccionar una pieza se marcan también las casillas que dejan a tu rey expuesto.
+El bot, en cualquier dificultad, se come a tu rey si lo dejas a tiro, y nunca deja el suyo en peligro.
 
 ### Contra el bot
 
@@ -135,6 +151,7 @@ material insuficiente y la regla de 50 jugadas.
 | `createBot {gen, name, level}` | partida contra el bot (`easy` · `normal` · `hard`) |
 | `botOptions {level?, gen?, choices?, random?}` | (contra el bot) dificultad, generación y piezas del bot |
 | `color {pref}` | (contra el bot) tu color: `w` · `b` · `random` |
+| `rules {attentive}` | (anfitrión) modo atento (`true`) o clásico (`false`) |
 | `join {code, name, gen}` | unirte con tu generación |
 | `resume {code, token}` | volver tras recargar |
 | `gen {gen}` | cambiar **tu** generación |
@@ -164,7 +181,7 @@ Ya están descargados los sprites de 966 Pokémon. Solo hay que añadir una entr
 npm test
 ```
 
-22 pruebas. Del bot: siempre juega legal (partidas bot contra bot), todos los niveles ven el mate en 1,
+28 pruebas. Del modo atento: está activo por defecto y solo lo cambia el anfitrión, se puede ignorar el jaque y comerse al rey gana, el "mate" no termina la partida, las reglas clásicas siguen igual, el bot se come un rey desprotegido y mueve aunque no tenga jugadas legales. Del bot: siempre juega legal (partidas bot contra bot), todos los niveles ven el mate en 1,
 Normal/Difícil se comen una dama regalada, Fácil come lo más valioso, corona, respeta su tiempo,
 la sala con bot (opciones, color, revancha automática) y una partida por WebSocket donde el bot contesta solo.
 Del resto: piezas por generación, generación por jugador, tablero (solo anfitrión, aleatorio),
@@ -173,6 +190,13 @@ que no se filtren tokens, una partida completa por WebSocket con reconexión, y 
 966 Pokémon y que las hojas de cada pieza cuadren con sus metadatos.
 
 ## Cambios
+
+**v4 — modo atento**
+- Nueva regla por defecto: se puede dejar al rey en peligro, sin avisos; comerse al rey gana la partida.
+- El bot se come un rey desprotegido y, sin jugadas legales, mueve igualmente.
+- Arreglado: si llegaba una jugada mientras se animaba una captura, el sprite de la pieza comida se quedaba debajo de otra. Ahora la animación anterior se termina al instante y se borra cualquier sprite sin pieza real.
+- El bot espera a que termine la animación de captura antes de mover.
+- Logo (Poké Ball y título) y robot del bot en pixel art.
 
 **v3 — bot**
 - Botón "Jugar contra el bot" con dificultad Fácil / Normal / Difícil.
