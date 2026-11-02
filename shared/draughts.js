@@ -4,8 +4,9 @@
  * - Casillas con la notación del ajedrez ('a1'..'h8'); se juega en las oscuras (a1 es oscura).
  * - Blancas ('w') en las filas 1-3 y mueven primero; negras ('b') en las filas 6-8. 12 fichas cada uno.
  * - Las fichas avanzan una casilla en diagonal hacia delante y comen saltando hacia delante.
- * - Comer es obligatorio: si alguna ficha puede comer, hay que hacer una captura, y la
- *   cadena de saltos debe completarse hasta que no se pueda comer más.
+ * - Comer es LIBRE por defecto: puedes comer o no, y en una cadena de saltos puedes
+ *   parar en cualquier salto. Con st.forced = true (opción "comer obligatorio") hay que
+ *   comer si se puede y la cadena se completa hasta que no se pueda comer más.
  * - Al llegar a la última fila la ficha corona (dama: se mueve y come una casilla en
  *   cualquier diagonal). Si corona en mitad de una cadena, la jugada termina ahí.
  * - Gana quien deja al rival sin fichas o sin movimientos. Tablas tras QUIET_LIMIT
@@ -22,8 +23,8 @@
   const other = (c) => (c === 'w' ? 'b' : 'w');
   const FORWARD = { w: 1, b: -1 };
 
-  /** Partida nueva: { cells: { a1: { color, king, id } }, turn, quiet, plies }. */
-  function create() {
+  /** Partida nueva: { cells: { a1: { color, king, id } }, turn, quiet, plies, forced }. */
+  function create({ forced = false } = {}) {
     const cells = {};
     const ids = { w: 0, b: 0 };
     for (let r = 1; r <= 8; r++) {
@@ -33,10 +34,10 @@
         if (color) cells[sq(f, r)] = { color, king: false, id: ids[color]++ };
       }
     }
-    return { cells, turn: 'w', quiet: 0, plies: 0 };
+    return { cells, turn: 'w', quiet: 0, plies: 0, forced: !!forced };
   }
 
-  const clone = (st) => ({ cells: Object.fromEntries(Object.entries(st.cells).map(([k, p]) => [k, { ...p }])), turn: st.turn, quiet: st.quiet, plies: st.plies });
+  const clone = (st) => ({ cells: Object.fromEntries(Object.entries(st.cells).map(([k, p]) => [k, { ...p }])), turn: st.turn, quiet: st.quiet, plies: st.plies, forced: st.forced });
 
   /** Direcciones (df, dr) en las que puede ir una pieza. */
   function dirsFor(p) {
@@ -45,8 +46,11 @@
   }
   const lastRank = (c) => (c === 'w' ? 8 : 1);
 
-  /** Cadenas de captura de una pieza (búsqueda en profundidad). */
-  function captureChains(st, from) {
+  /**
+   * Cadenas de captura de una pieza (búsqueda en profundidad). Con `partial` también
+   * se devuelven las cadenas cortadas a mitad (comer libre: puedes parar cuando quieras).
+   */
+  function captureChains(st, from, partial = false) {
     const p = st.cells[from];
     const chains = [];
     const walk = (at, path, captured, king) => {
@@ -64,9 +68,12 @@
         const nextPath = [...path, land];
         const nextCap = [...captured, over];
         if (crowned) chains.push({ from, to: land, path: nextPath, captured: nextCap, crown: true });
-        else walk(land, nextPath, nextCap, king);
+        else {
+          if (partial) chains.push({ from, to: land, path: nextPath, captured: nextCap, crown: false });
+          walk(land, nextPath, nextCap, king);
+        }
       }
-      if (!extended && captured.length) chains.push({ from, to: at, path, captured, crown: false });
+      if (!extended && captured.length && !partial) chains.push({ from, to: at, path, captured, crown: false });
     };
     walk(from, [from], [], p.king);
     return chains;
@@ -84,12 +91,15 @@
     return out;
   }
 
-  /** Jugadas legales del bando: si hay capturas, solo capturas (comer es obligatorio). */
+  /**
+   * Jugadas legales del bando. Comer libre: capturas (incluidas cadenas cortadas) y pasos.
+   * Comer obligatorio (st.forced): si hay capturas, solo capturas completas.
+   */
   function legalMoves(st, color = st.turn) {
     const mine = Object.keys(st.cells).filter((k) => st.cells[k].color === color);
-    const caps = mine.flatMap((k) => captureChains(st, k));
-    if (caps.length) return caps;
-    return mine.flatMap((k) => steps(st, k));
+    const caps = mine.flatMap((k) => captureChains(st, k, !st.forced));
+    if (st.forced && caps.length) return caps;
+    return [...caps, ...mine.flatMap((k) => steps(st, k))];
   }
 
   /** Jugadas legales de una ficha concreta (respetando la captura obligatoria). */
@@ -107,7 +117,7 @@
     if (!p || p.color !== color) throw new Error('Esa ficha no es tuya');
     const options = legalMoves(st, color).filter((m) => m.from === from && m.to === to);
     if (!options.length) {
-      const mustCapture = legalMoves(st, color).some((m) => m.captured.length);
+      const mustCapture = st.forced && legalMoves(st, color).some((m) => m.captured.length);
       throw new Error(mustCapture ? 'Comer es obligatorio' : 'Jugada ilegal');
     }
     const m = (path && options.find((o) => o.path.join() === path.join())) || options[0];

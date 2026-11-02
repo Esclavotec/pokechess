@@ -5,9 +5,11 @@
  * avanzar (las fichas cerca de coronar valen más), por ocupar el centro y por
  * guardar la última fila propia (dificulta que el rival corone).
  *
- * - Fácil:   jugada legal al azar (las capturas son obligatorias por regla).
+ * - Fácil:   jugada legal al azar, aunque si puede comer, normalmente come.
  * - Normal:  negamax con poda alfa-beta a 4 jugadas, con algo de variedad.
  * - Difícil: profundización iterativa hasta 8 jugadas con límite de tiempo.
+ *
+ * Funciona igual con comer libre u obligatorio (lo marca st.forced).
  */
 const D = require('../shared/draughts');
 
@@ -40,10 +42,22 @@ function search(st, depth, alpha, beta, ply, deadline) {
   if (Date.now() > deadline) throw new Timeout();
   const moves = D.legalMoves(st);
   if (!moves.length) return -WIN + ply; // sin jugadas (o sin fichas): pierde quien mueve
-  if (depth <= 0 && !moves[0].captured.length) return evaluate(st, st.turn);
-  // Con capturas pendientes se sigue buscando (evita cortar a mitad de un intercambio)
-  if (depth <= -4) return evaluate(st, st.turn);
-  for (const m of moves) {
+  let list = moves;
+  if (depth <= 0) {
+    // Búsqueda de quietud: al llegar al fondo solo se siguen mirando las capturas,
+    // para no cortar a mitad de un intercambio (y quedarse quieto también vale).
+    const standPat = evaluate(st, st.turn);
+    list = moves.filter((m) => m.captured.length);
+    if (!list.length || depth <= -4) return standPat;
+    if (!st.forced) {
+      if (standPat >= beta) return beta;
+      if (standPat > alpha) alpha = standPat;
+    }
+  } else {
+    // Capturas primero (más piezas comidas antes) para podar más
+    list = [...moves].sort((a, b) => b.captured.length - a.captured.length);
+  }
+  for (const m of list) {
     const s = D.clone(st);
     D.applyMove(s, s.turn, m.from, m.to, m.path);
     const score = -search(s, depth - 1, -beta, -alpha, ply + 1, deadline);
@@ -65,7 +79,11 @@ function chooseMove(st, level = 'normal', opts = {}) {
   if (!moves.length) return null;
   const pick = (arr) => arr[Math.floor(rand() * arr.length)];
   const out = (m) => ({ from: m.from, to: m.to, path: m.path });
-  if (level === 'easy' || moves.length === 1) return out(pick(moves));
+  if (moves.length === 1) return out(moves[0]);
+  if (level === 'easy') {
+    const caps = moves.filter((m) => m.captured.length);
+    return out(pick(caps.length && rand() < 0.75 ? caps : moves));
+  }
 
   const cfg = LEVELS[level] || LEVELS.normal;
   const deadline = Date.now() + (opts.timeMs || cfg.timeMs);

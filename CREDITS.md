@@ -134,7 +134,7 @@ Artistas de los sprites, tal como figuran en los créditos de PokéSurvivor:
 
 ## Insignias, iconos y tableros
 
-La Honor Ball, la Ocaso Ball, la Poké Ball del logo y el robot (`public/img/`), los
+La Honor Ball, la Ocaso Ball, la Poké Ball del logo, el robot y el icono de pestaña (`public/img/`), los
 tableros temáticos y el tablero de estrella de las damas chinas son dibujos propios
 hechos con SVG y CSS para este proyecto.
 

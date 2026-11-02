@@ -77,6 +77,7 @@ class Room {
     this.game = 'chess';               // 'chess' | 'checkers'
     this.ck = null;                    // estado de las damas chinas durante la partida
     this.dr = null;                    // estado de las damas clásicas durante la partida
+    this.drForced = false;             // damas: comer obligatorio (false = comer libre)
     this.attentive = true;             // modo atento: se puede dejar al rey en peligro
     this.sanHistory = [];              // historial propio (chess.js no anota jugadas pseudolegales)
     this.updatedAt = Date.now();
@@ -213,6 +214,15 @@ class Room {
     return this.chess.turn();
   }
 
+  /** (Damas) el anfitrión elige si comer es obligatorio o libre. */
+  setDraughtsForced(token, on) {
+    this.colorOf(token);
+    if (token !== this.hostToken) throw new RoomError('Solo el anfitrión elige las reglas');
+    if (this.status !== 'lobby') throw new RoomError('La partida ya empezó');
+    this.drForced = !!on;
+    this.touch();
+  }
+
   /** El anfitrión elige las reglas: modo atento (true) o clásico (false). */
   setAttentive(token, on) {
     this.colorOf(token);
@@ -257,7 +267,7 @@ class Room {
     }
     this.chess = new Chess();
     this.ck = this.game === 'checkers' ? Checkers.create() : null;
-    this.dr = this.game === 'draughts' ? Draughts.create() : null;
+    this.dr = this.game === 'draughts' ? Draughts.create({ forced: this.drForced }) : null;
     this.sanHistory = [];
     this.lastMove = null;
     this.result = null;
@@ -427,7 +437,8 @@ class Room {
       fen: this.chess.fen(),
       history: this.sanHistory,
       game: this.game,
-      dr: this.dr ? { cells: this.dr.cells, quiet: this.dr.quiet, count: { w: Draughts.count(this.dr, 'w'), b: Draughts.count(this.dr, 'b') } } : null,
+      drForced: this.drForced,
+      dr: this.dr ? { cells: this.dr.cells, quiet: this.dr.quiet, forced: this.dr.forced, count: { w: Draughts.count(this.dr, 'w'), b: Draughts.count(this.dr, 'b') } } : null,
       ck: this.ck ? { cells: this.ck.cells, moves: this.ck.moves, inGoal: { w: Checkers.inGoal(this.ck, 'w'), b: Checkers.inGoal(this.ck, 'b') } } : null,
       turn: this.turn(),
       // En modo atento no se avisa del jaque (hay que estar atento)

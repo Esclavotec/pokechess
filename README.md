@@ -37,8 +37,9 @@ En Gen III el rey y la reina se eligen juntos: al escoger Latios, la reina pasa 
 
 Damas clásicas en el tablero de 8×8 (casillas oscuras), 12 fichas por jugador. Blancas mueven primero.
 
-- Las fichas avanzan **una casilla en diagonal** hacia delante y comen saltando hacia delante.
-- **Comer es obligatorio**: si alguna ficha puede comer, hay que comer (se marcan con un aro discontinuo), y la cadena de saltos se completa hasta que no se pueda comer más.
+- Las fichas avanzan **una casilla en diagonal** hacia delante y comen saltando hacia delante, encadenando capturas.
+- **Comer es libre** (por defecto): comes solo si quieres, y en una cadena de saltos puedes parar en cualquier salto.
+- Opción **Comer obligatorio** en el lobby (la elige el anfitrión): si puedes comer, tienes que comer (las fichas que pueden se marcan con un aro discontinuo) y la cadena se completa entera.
 - Al llegar al fondo la ficha **corona y evoluciona**: la dama se mueve y come una casilla en **cualquier diagonal**. Si corona en mitad de una cadena, la jugada termina ahí.
 - **Gana** quien deja al rival sin fichas o sin movimientos. **Tablas** tras 80 jugadas seguidas sin capturas.
 - Animación: la ficha camina en diagonal; en cada captura **ataca** y la ficha comida se debilita; al coronar brilla y evoluciona.
@@ -50,7 +51,7 @@ Damas clásicas en el tablero de 8×8 (casillas oscuras), 12 fichas por jugador.
 | III | Bagon | Salamence |
 
 **Bot de damas** (`server/draughtsBot.js`): negamax con poda alfa-beta. Valora fichas (100), damas (170), avance, centro y la guardia de la última fila.
-Fácil mueve al azar (respetando la captura obligatoria); Normal mira 4 jugadas; Difícil hasta 8 jugadas con límite de tiempo.
+Fácil mueve casi al azar (aunque si puede comer, suele comer); Normal mira 4 jugadas; Difícil hasta 8 jugadas con límite de tiempo. Al final de la búsqueda sigue mirando las capturas pendientes (búsqueda de quietud) para no cortar a mitad de un intercambio.
 
 ## Damas chinas
 
@@ -206,6 +207,7 @@ material insuficiente y la regla de 50 jugadas.
 | `botOptions {level?, gen?, choices?, random?}` | (contra el bot) dificultad, generación y piezas del bot |
 | `color {pref}` | (contra el bot) tu color: `w` · `b` · `random` |
 | `rules {attentive}` | (anfitrión) modo atento (`true`) o clásico (`false`) |
+| `drRules {forced}` | (anfitrión, damas) comer obligatorio (`true`) o libre (`false`) |
 | `join {code, name, gen}` | unirte con tu generación |
 | `resume {code, token}` | volver tras recargar |
 | `gen {gen}` | cambiar **tu** generación |
@@ -235,7 +237,7 @@ Ya están descargados los sprites de 966 Pokémon. Solo hay que añadir una entr
 npm test
 ```
 
-45 pruebas. De damas: posición inicial, avance en diagonal, captura obligatoria, cadenas de capturas, coronación, la dama come hacia atrás, victoria sin fichas o sin movimientos, el bot juega legal y elige la captura doble, y la sala de damas. De damas chinas y Gen III: tablero de 121 huecos, pasos y saltos encadenados, validación de jugadas, victoria al llenar la meta, el bot juega legal y termina partidas, sala con bot y cambio de juego, y la pareja rey/reina de Gen III. Del modo atento: está activo por defecto y solo lo cambia el anfitrión, se puede ignorar el jaque y comerse al rey gana, el "mate" no termina la partida, las reglas clásicas siguen igual, el bot se come un rey desprotegido y mueve aunque no tenga jugadas legales. Del bot: siempre juega legal (partidas bot contra bot), todos los niveles ven el mate en 1,
+47 pruebas. De damas: posición inicial, avance en diagonal, comer libre (no comer y cortar cadenas), captura obligatoria como opción y quién la elige, cadenas de capturas, coronación, la dama come hacia atrás, victoria sin fichas o sin movimientos, el bot juega legal y elige la captura doble, y la sala de damas. De damas chinas y Gen III: tablero de 121 huecos, pasos y saltos encadenados, validación de jugadas, victoria al llenar la meta, el bot juega legal y termina partidas, sala con bot y cambio de juego, y la pareja rey/reina de Gen III. Del modo atento: está activo por defecto y solo lo cambia el anfitrión, se puede ignorar el jaque y comerse al rey gana, el "mate" no termina la partida, las reglas clásicas siguen igual, el bot se come un rey desprotegido y mueve aunque no tenga jugadas legales. Del bot: siempre juega legal (partidas bot contra bot), todos los niveles ven el mate en 1,
 Normal/Difícil se comen una dama regalada, Fácil come lo más valioso, corona, respeta su tiempo,
 la sala con bot (opciones, color, revancha automática) y una partida por WebSocket donde el bot contesta solo.
 Del resto: piezas por generación, generación por jugador, tablero (solo anfitrión, aleatorio),
@@ -244,6 +246,10 @@ que no se filtren tokens, una partida completa por WebSocket con reconexión, y 
 966 Pokémon y que las hojas de cada pieza cuadren con sus metadatos.
 
 ## Cambios
+
+**v7 — comer libre e icono**
+- Damas: comer ya no es obligatorio (y las cadenas se pueden cortar). La regla clásica sigue disponible como opción "Comer obligatorio".
+- Icono de pestaña en pixel art: un caballo de ajedrez con los colores de una Poké Ball (`public/img/favicon.svg`).
 
 **v6 — damas**
 - Nuevo juego: damas clásicas en el tablero de 8×8, online y contra el bot (3 dificultades).

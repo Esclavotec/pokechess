@@ -190,7 +190,8 @@ function renderLobby() {
 /** Reglas: modo atento (por defecto) o clásico. Las elige el anfitrión. */
 function renderRules() {
   const box = $('rules-settings');
-  if (state.game !== 'chess') { box.innerHTML = ''; return; } // las reglas solo afectan al ajedrez
+  if (state.game === 'draughts') return renderDraughtsRules(box);
+  if (state.game !== 'chess') { box.innerHTML = ''; return; } // las damas chinas no tienen opciones
   const can = state.isHost;
   box.innerHTML = `
     <h2>Reglas</h2>
@@ -204,6 +205,21 @@ function renderRules() {
   if (can) box.querySelectorAll('.seg').forEach((b) => (b.onclick = () => send({ type: 'rules', attentive: b.dataset.v === '1' })));
 }
 
+/** Reglas de las damas: comer libre (por defecto) u obligatorio. */
+function renderDraughtsRules(box) {
+  const can = state.isHost;
+  box.innerHTML = `
+    <h2>Reglas</h2>
+    <div class="segmented" data-name="drRules">
+      <button class="seg ${state.drForced ? '' : 'active'}" data-v="0" ${can ? '' : 'disabled'}>Comer libre</button>
+      <button class="seg ${state.drForced ? 'active' : ''}" data-v="1" ${can ? '' : 'disabled'}>Comer obligatorio</button>
+    </div>
+    <p class="muted small">${state.drForced
+      ? 'Si puedes comer, tienes que comer, y la cadena de saltos se completa entera.'
+      : 'Comes solo si quieres, y en una cadena de saltos puedes parar en cualquier salto.'}</p>`;
+  if (can) box.querySelectorAll('.seg').forEach((b) => (b.onclick = () => send({ type: 'drRules', forced: b.dataset.v === '1' })));
+}
+
 /** Juego de la sala: ajedrez o damas chinas (lo elige el anfitrión). */
 function renderGameSettings() {
   const box = $('game-settings');
@@ -215,7 +231,7 @@ function renderGameSettings() {
       <button class="seg ${state.game === 'draughts' ? 'active' : ''}" data-v="draughts" ${can ? '' : 'disabled'}>⛀ Damas</button>
       <button class="seg ${state.game === 'checkers' ? 'active' : ''}" data-v="checkers" ${can ? '' : 'disabled'}>✦ Damas chinas</button>
     </div>
-    ${state.game === 'draughts' ? '<p class="muted small">Damas clásicas: avanza en diagonal, comer es obligatorio y se encadenan capturas. Al llegar al fondo la ficha evoluciona y se mueve en cualquier diagonal. Gana quien deja al rival sin fichas o sin movimientos.</p>' : ''}
+    ${state.game === 'draughts' ? '<p class="muted small">Damas clásicas: avanza en diagonal y come saltando, encadenando capturas. Al llegar al fondo la ficha evoluciona y se mueve en cualquier diagonal. Gana quien deja al rival sin fichas o sin movimientos.</p>' : ''}
     ${state.game === 'checkers' ? '<p class="muted small">Lleva tus 10 Pokémon a la punta contraria de la estrella. Puedes avanzar a un hueco vecino o saltar por encima de cualquier ficha, encadenando saltos. Tablas a las 200 jugadas.</p>' : ''}`;
   if (can) box.querySelectorAll('.seg').forEach((b) => (b.onclick = () => send({ type: 'game', game: b.dataset.v })));
 }
@@ -227,7 +243,7 @@ function renderBotSettings() {
   const seg = (name, items, active) => `<div class="segmented" data-name="${name}">${items.map(([v, label]) =>
     `<button class="seg ${v === active ? 'active' : ''}" data-v="${v}">${label}</button>`).join('')}</div>`;
   const help = state.game === 'draughts' ? {
-    easy: 'Mueve al azar (pero come cuando es obligatorio).',
+    easy: 'Mueve casi al azar, aunque si puede comer suele comer.',
     normal: 'Piensa 4 jugadas por adelantado.',
     hard: 'Piensa hasta 8 jugadas por adelantado.',
   } : state.game === 'checkers' ? {
@@ -586,11 +602,15 @@ function renderDraughts(prev) {
   const bd = Boards.BOARDS.find((b) => b.id === theme);
   $('board-name').textContent = bd ? `📍 ${bd.name}` : '';
 
-  const st = { cells: state.dr ? state.dr.cells : {}, turn: state.turn };
+  const st = { cells: state.dr ? state.dr.cells : {}, turn: state.turn, forced: !!(state.dr && state.dr.forced) };
   const legal = myTurn ? DR.legalMoves(st) : [];
   const movable = new Set(legal.map((m) => m.from));
-  const mustCapture = legal.length > 0 && legal[0].captured.length > 0;
-  const dests = new Map(drSelected ? legal.filter((m) => m.from === drSelected).map((m) => [m.to, m]) : []);
+  const mustCapture = st.forced && legal.some((m) => m.captured.length); // solo con "comer obligatorio"
+  // Si varias cadenas acaban en la misma casilla, se marca la que más come
+  const dests = new Map();
+  for (const m of drSelected ? legal.filter((x) => x.from === drSelected) : []) {
+    if (!dests.has(m.to) || dests.get(m.to).captured.length < m.captured.length) dests.set(m.to, m);
+  }
   const lm = state.lastMove && state.lastMove.path ? state.lastMove : null;
 
   const files = 'abcdefgh';
@@ -650,7 +670,7 @@ function onDraughtSquare(sq, st, movable, dests) {
     return renderDraughts(state);
   }
   const p = st.cells[sq];
-  if (p && p.color === state.you && !movable.has(sq)) toast('Comer es obligatorio: mueve una ficha que pueda comer');
+  if (p && p.color === state.you && !movable.has(sq) && st.forced) toast('Comer es obligatorio: mueve una ficha que pueda comer');
   drSelected = p && movable.has(sq) && sq !== drSelected ? sq : null;
   renderDraughts(state);
 }

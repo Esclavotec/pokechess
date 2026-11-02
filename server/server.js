@@ -16,6 +16,7 @@
  *   { type: 'botOptions', level?, gen?, choices?, random? }  (contra el bot) ajustes del bot
  *   { type: 'color', pref }              (contra el bot) 'w' | 'b' | 'random'
  *   { type: 'rules', attentive }         (anfitrión) modo atento o clásico
+ *   { type: 'drRules', forced }          (anfitrión, damas) comer obligatorio (true) o libre (false)
  *   { type: 'resign' } | { type: 'rematch' }
  * Servidor -> cliente:
  *   { type: 'joined', code, token, color }   guardar token para reconectar
@@ -144,6 +145,7 @@ function createServer({ botDelayMs = 900 } = {}) {
           case 'botOptions': room.setBotOptions(token, msg); break;
           case 'color': room.setColorPref(token, msg.pref); break;
           case 'rules': room.setAttentive(token, msg.attentive); break;
+          case 'drRules': room.setDraughtsForced(token, msg.forced); break;
           case 'game': room.setGame(token, msg.game); break;
           default: return;
         }
